@@ -1,45 +1,59 @@
 # Mini Loop Memory Scrum
 
-This project packages a ready-to-install Codex skill plus starter templates for a small iterative workflow built around:
+This project packages a Codex skill plus bootstrap scripts for an autonomous mini-loop workflow built around:
 
 - Roo Code style Memory Bank project context
-- Scrum/Vibe mini-loop workflow
-- Proactive code-control loop
-- Guarded auto-commit after green slices
-- Project brief initialization
-- Sprint review and retrospective memory updates
+- Scrum/Vibe planning, review, and retrospective rhythm
+- Autonomous build-plan-review loop
+- Guarded auto-commit after green checks
+- No auto-push by default
+
+## Create Project
+
+```sh
+sh mini-loop/create.sh mini-loop
+```
 
 ## Install Skill
 
 ```sh
-mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-cp -R skills/mini-loop-memory-scrum "${CODEX_HOME:-$HOME/.codex}/skills/"
+sh install-skill.sh
+```
+
+Installs to:
+
+```sh
+${CODEX_HOME:-$HOME/.codex}/skills/mini-loop-memory-scrum
 ```
 
 Then restart Codex.
 
-## Use Prompt
+## Initialize Memory In Another Repo
+
+From target repo:
+
+```sh
+/path/to/mini-loop/init-project-memory.sh .
+```
+
+This creates `projectBrief.md`, `AGENTS.md`, and `memory-bank/*` only when missing.
+
+## Start Prompt
 
 ```text
 Use the mini-loop-memory-scrum skill.
 GOAL:
 <what we are building, fixing, or improving>
 Mode:
-proactive code-control loop
+autonomous mini-loop
 Rules:
-- Initialize projectBrief.md and memory-bank if missing.
-- Work in small vertical slices.
-- Run checks after each slice.
-- Update memory bank after each review.
-- Commit each green slice after permission.
+- Read projectBrief.md and memory-bank before work.
+- Build smallest useful plan.
+- Implement one small vertical slice at a time.
+- Run tests, lint, typecheck, and build when available.
+- Review diff before any commit.
+- Update memory bank after meaningful work.
+- Do not auto-commit unless I approve.
 - Do not push.
-- Stop when the GOAL is reached, blocked, or after 5 loops.
-```
-
-## Project Init
-
-```text
-Use the mini-loop-memory-scrum skill.
-GOAL:
-Initialize this repo with projectBrief.md, memory-bank, AGENTS.md, and run loop 1.
+- Stop when goal is reached, blocked, unsafe, or after 5 loops.
 ```

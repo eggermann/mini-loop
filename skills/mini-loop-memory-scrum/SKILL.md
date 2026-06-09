@@ -1,11 +1,11 @@
 ---
 name: mini-loop-memory-scrum
-description: Initialize a Roo Code compatible memory bank from a user GOAL, create a project brief, and run a guarded Scrum/Vibe proactive code-control loop until goal is reached or blocked.
+description: Initialize a Codex-compatible memory bank from a user GOAL, create a project brief, and run a guarded Scrum/Vibe autonomous mini-loop until goal is reached or blocked.
 ---
 
 # Mini-Loop Memory Scrum Skill
 
-Use this skill when user wants to start or continue a project with persistent project memory, Roo Code Memory Bank compatibility, Codex compatibility, Scrum/Vibe workflow, project brief creation, sprint-style reviews, retrospectives, proactive code-control, or guarded auto-commit loops.
+Use this skill when user wants persistent project memory, Roo Code Memory Bank compatibility, Scrum/Vibe planning-review-retro flow, autonomous build-plan-review loops, or guarded auto-commit after green checks.
 
 ## Trigger
 
@@ -16,6 +16,7 @@ Use this skill when user mentions:
 - Roo Code Memory Bank
 - scrum-vibe-flow
 - mini-loop
+- autonomous loop
 - proactive code control
 - auto-commit loop
 - project brief initialization
@@ -30,17 +31,9 @@ What are we building, fixing, or improving?
 
 If user already provided a clear goal, do not ask again.
 
-## Core Loop
-
-Always work in this rhythm:
-
-`GOAL -> Project Brief -> Memory Bank Init -> Sprint Plan -> Implement Small Slice -> Run Checks -> Review -> Retrospective -> Update Memory Bank -> Commit if green and permitted -> Next Loop`
-
-Do not skip review, retrospective, or memory updates.
-
 ## Repository Setup
 
-At start of a project, inspect repository.
+At start of project, inspect repository.
 
 If missing, create:
 
@@ -56,6 +49,65 @@ If missing, create:
 
 Do not overwrite substantial existing files without preserving content.
 
+## Core Loop
+
+Always work in this bounded rhythm:
+
+`GOAL -> read context -> build plan -> implement smallest slice -> run tests/build/lint/typecheck -> review diff -> update memory bank -> commit if green and permitted -> continue or stop`
+
+Do not skip review, retrospective, or memory updates.
+
+## Default Autonomous Settings
+
+- `max_loops: 5`
+- `auto_commit: ask-first`
+- `auto_push: never`
+- `auto_merge: never`
+- `auto_delete: never`
+- `require_green_checks: true`
+- `require_review_before_commit: true`
+- `require_memory_update: true`
+
+## Context Read Order
+
+Before each loop:
+
+1. Read `projectBrief.md`.
+2. Read all `memory-bank/*.md` files.
+3. Inspect dirty working tree state.
+4. Identify current loop phase from `memory-bank/activeContext.md`.
+
+## Loop Contract
+
+For each iteration:
+
+1. Restate current GOAL.
+2. Select smallest next backlog item.
+3. Define acceptance criteria.
+4. Implement only that slice.
+5. Run available checks:
+   - tests
+   - lint
+   - typecheck
+   - build
+   - manual verification when no automated checks exist
+6. Review diff against GOAL and acceptance criteria.
+7. Update memory bank files.
+8. Commit only if checks are green, review is coherent, memory is updated, and user permission exists.
+9. Continue to next slice or stop.
+
+## Stop Conditions
+
+Stop when any of these is true:
+
+- Goal is satisfied.
+- Blocked by missing info.
+- Checks fail and cannot be fixed safely.
+- Destructive action is required.
+- Large dependency is required.
+- Unrelated dirty changes exist.
+- Max loop count is reached.
+
 ## Project Brief
 
 Create or update `projectBrief.md` with:
@@ -67,7 +119,7 @@ Create or update `projectBrief.md` with:
 ## Problem
 <what pain, opportunity, or missing capability this addresses>
 ## Desired Outcome
-<what should be true when the project succeeds>
+<what should be true when project succeeds>
 ## Users / Stakeholders
 <who benefits or uses result>
 ## Scope
@@ -82,9 +134,9 @@ Create or update `projectBrief.md` with:
 - Quality:
 - Security:
 ## Definition of Done
-- The requested behavior is implemented.
+- Requested behavior is implemented.
 - Relevant tests or checks pass.
-- The memory bank is updated.
+- Memory bank is updated.
 - Review notes are captured.
 - Retrospective notes are captured.
 - Next action is clear.
@@ -208,101 +260,13 @@ During work:
 2. Prefer a vertical slice over broad unfinished edits.
 3. Record important architectural or product decisions.
 4. Run available tests/checks when possible.
+5. Review diff before proposing commit.
 After meaningful work:
 1. Update `memory-bank/activeContext.md`.
 2. Update `memory-bank/progress.md`.
 3. Update `memory-bank/decisionLog.md` if a decision was made.
 4. Update `memory-bank/sprintReview.md` after review.
 5. State next recommended action.
-```
-
-## Proactive Code-Control Loop
-
-When user asks for autonomous progress, proactive code control, or auto-commit, run this loop until GOAL is reached, blocked, or loop budget is exhausted.
-
-Default budget:
-
-- `max_loops: 5`
-- `auto_commit: ask-first`
-- `auto_push: never`
-- `auto_merge: never`
-- `destructive_changes: ask-first`
-- `large_dependencies: ask-first`
-
-## Loop Contract
-
-For each iteration:
-
-1. Read `projectBrief.md`.
-2. Read all `memory-bank/*.md` files.
-3. Select smallest next backlog item.
-4. Define acceptance criteria.
-5. Implement only that slice.
-6. Run available checks:
-   - tests
-   - lint
-   - typecheck
-   - build
-   - manual verification when no automated checks exist
-7. Review diff against GOAL.
-8. Update memory bank files.
-9. Commit only if slice is coherent, checks pass, and auto-commit permission exists.
-10. Continue to next slice.
-
-## Stop Conditions
-
-Stop when any of these is true:
-
-- GOAL is satisfied.
-- Required clarification blocks progress.
-- Tests/checks fail and cannot be fixed within current loop.
-- Change would require destructive action.
-- Change would require a large dependency or architecture shift.
-- Maximum loop count is reached.
-- Repository has unrelated dirty changes that should not be touched.
-- Next step requires pushing, deploying, publishing, or merging.
-
-## Auto-Commit Policy
-
-Default: ask before first auto-commit.
-
-If user grants permission:
-
-- Commit after each green vertical slice.
-- Never commit failing tests unless user explicitly requested a WIP commit.
-- Never include unrelated files.
-- Use clear commit messages.
-- Update memory bank before committing.
-- Include memory-bank updates in same commit when they describe completed slice.
-- Never auto-push.
-
-## Commit Message Format
-
-```text
-<type>: <short summary>
-Goal: <current goal>
-Loop: <loop number>
-Checks: <tests/lint/build/manual verification>
-```
-
-## Mini-Loop Planning Output
-
-Use:
-
-```md
-## Mini-Loop Plan
-### Sprint Goal
-<one sentence>
-### Backlog
-1. <small task>
-2. <small task>
-3. <small task>
-### Acceptance Criteria
-- ...
-- ...
-### Verification
-- Command/check:
-- Manual review:
 ```
 
 ## Code-Control Review
@@ -349,8 +313,6 @@ Append to `memory-bank/sprintReview.md`:
 - ...
 ```
 
-## Retrospective Format
-
 Append after each loop:
 
 ```md
@@ -367,14 +329,12 @@ Append after each loop:
 
 ## Scrum/Vibe Tags
 
-Use these tags when useful:
-
-- `@vibe` exploratory implementation or prototype
-- `@arch` architecture / structure / design decision
-- `@control` review, constraints, acceptance criteria, quality gate
-- `@debug` investigation or bug loop
-- `@ship` release, polish, final checks
-- `@retro` retrospective / process improvement
+- `@vibe`
+- `@arch`
+- `@control`
+- `@debug`
+- `@ship`
+- `@retro`
 
 ## Output Style
 
