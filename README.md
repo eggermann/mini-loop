@@ -45,15 +45,14 @@ Use the mini-loop-memory-scrum skill.
 GOAL:
 <what we are building, fixing, or improving>
 Mode:
-autonomous mini-loop
-Rules:
-- Read projectBrief.md and memory-bank before work.
-- Build smallest useful plan.
-- Implement one small vertical slice at a time.
-- Run tests, lint, typecheck, and build when available.
-- Review diff before any commit.
-- Update memory bank after meaningful work.
-- Do not auto-commit unless I approve.
-- Do not push.
-- Stop when goal is reached, blocked, unsafe, or after 5 loops.
+auto
 ```
+
+Available `Mode:` flags:
+
+- `auto` full autonomous mini-loop, default
+- `guided` plan and implement one slice, then stop for user input
+- `review` inspect, run checks, review diff, update memory if needed, no broad implementation pass
+- `init` only initialize `projectBrief.md`, `AGENTS.md`, and `memory-bank/*`
+
+Behavior like context reading, small-slice planning, checks, review-before-commit, memory updates, no auto-push, and 5-loop max is built into the skill.

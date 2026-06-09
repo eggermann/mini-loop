@@ -7,6 +7,26 @@ description: Initialize a Codex-compatible memory bank from a user GOAL, create 
 
 Use this skill when user wants persistent project memory, Roo Code Memory Bank compatibility, Scrum/Vibe planning-review-retro flow, autonomous build-plan-review loops, or guarded auto-commit after green checks.
 
+Unless user explicitly overrides behavior, treat this file as source of truth for loop rules, safety rules, commit rules, and stopping conditions. Do not require user to restate them in each prompt.
+
+## Mode Flag
+
+Support optional prompt flag:
+
+```text
+Mode:
+<mode>
+```
+
+Available modes:
+
+- `auto`: Default. Run bounded autonomous mini-loop using defaults in this file.
+- `guided`: Build plan, implement one smallest useful slice, run checks, review diff, update memory, then stop and ask for direction.
+- `review`: Review existing work, run available checks, inspect diff, update memory if useful, and do not run a broad implementation pass.
+- `init`: Only initialize `projectBrief.md`, `AGENTS.md`, and `memory-bank/*` in current repo. Do not run implementation loop.
+
+If `Mode:` is omitted, use `auto`.
+
 ## Trigger
 
 Use this skill when user mentions:
@@ -67,6 +87,16 @@ Do not skip review, retrospective, or memory updates.
 - `require_green_checks: true`
 - `require_review_before_commit: true`
 - `require_memory_update: true`
+
+These defaults apply even when user prompt contains only:
+
+```text
+Use the mini-loop-memory-scrum skill.
+GOAL:
+<goal>
+Mode:
+auto
+```
 
 ## Context Read Order
 
