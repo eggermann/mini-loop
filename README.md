@@ -20,6 +20,12 @@ sh mini-loop/create.sh mini-loop
 sh install-skill.sh
 ```
 
+No-clone install from GitHub:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/eggermann/mini-loop/main/install-from-github.sh | sh
+```
+
 Installs to:
 
 ```sh
@@ -27,6 +33,12 @@ ${CODEX_HOME:-$HOME/.codex}/skills/mini-loop-memory-scrum
 ```
 
 Then restart Codex.
+
+If you want install from another branch or fork, pass raw base URL:
+
+```sh
+sh install-from-github.sh https://raw.githubusercontent.com/<owner>/<repo>/<branch>
+```
 
 ## Initialize Memory In Another Repo
 
