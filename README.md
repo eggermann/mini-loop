@@ -36,7 +36,7 @@ From target repo:
 /path/to/mini-loop/init-project-memory.sh .
 ```
 
-This creates `projectBrief.md`, `AGENTS.md`, and `memory-bank/*` only when missing.
+This creates `.mlms/projectBrief.md`, `.mlms/AGENTS.md`, and `.mlms/memory-bank/*` only when missing.
 
 ## Start Prompt
 
@@ -53,6 +53,6 @@ Available `Mode:` flags:
 - `auto` full autonomous mini-loop, default
 - `guided` plan and implement one slice, then stop for user input
 - `review` inspect, run checks, review diff, update memory if needed, no broad implementation pass
-- `init` only initialize `projectBrief.md`, `AGENTS.md`, and `memory-bank/*`
+- `init` only initialize `.mlms/projectBrief.md`, `.mlms/AGENTS.md`, and `.mlms/memory-bank/*`
 
 Behavior like context reading, small-slice planning, checks, review-before-commit, memory updates, no auto-push, and 5-loop max is built into the skill.

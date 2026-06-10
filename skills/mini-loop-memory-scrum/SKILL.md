@@ -23,7 +23,7 @@ Available modes:
 - `auto`: Default. Run bounded autonomous mini-loop using defaults in this file.
 - `guided`: Build plan, implement one smallest useful slice, run checks, review diff, update memory, then stop and ask for direction.
 - `review`: Review existing work, run available checks, inspect diff, update memory if useful, and do not run a broad implementation pass.
-- `init`: Only initialize `projectBrief.md`, `AGENTS.md`, and `memory-bank/*` in current repo. Do not run implementation loop.
+- `init`: Only initialize `.mlms/projectBrief.md`, `.mlms/AGENTS.md`, and `.mlms/memory-bank/*` in current repo. Do not run implementation loop.
 
 If `Mode:` is omitted, use `auto`.
 
@@ -57,15 +57,15 @@ At start of project, inspect repository.
 
 If missing, create:
 
-- `projectBrief.md`
-- `memory-bank/`
-- `memory-bank/activeContext.md`
-- `memory-bank/productContext.md`
-- `memory-bank/progress.md`
-- `memory-bank/decisionLog.md`
-- `memory-bank/systemPatterns.md`
-- `memory-bank/sprintReview.md`
-- `AGENTS.md`
+- `.mlms/projectBrief.md`
+- `.mlms/AGENTS.md`
+- `.mlms/memory-bank/`
+- `.mlms/memory-bank/activeContext.md`
+- `.mlms/memory-bank/productContext.md`
+- `.mlms/memory-bank/progress.md`
+- `.mlms/memory-bank/decisionLog.md`
+- `.mlms/memory-bank/systemPatterns.md`
+- `.mlms/memory-bank/sprintReview.md`
 
 Do not overwrite substantial existing files without preserving content.
 
@@ -102,10 +102,10 @@ auto
 
 Before each loop:
 
-1. Read `projectBrief.md`.
-2. Read all `memory-bank/*.md` files.
+1. Read `.mlms/projectBrief.md`.
+2. Read all `.mlms/memory-bank/*.md` files.
 3. Inspect dirty working tree state.
-4. Identify current loop phase from `memory-bank/activeContext.md`.
+4. Identify current loop phase from `.mlms/memory-bank/activeContext.md`.
 
 ## Loop Contract
 
@@ -140,7 +140,7 @@ Stop when any of these is true:
 
 ## Project Brief
 
-Create or update `projectBrief.md` with:
+Create or update `.mlms/projectBrief.md` with:
 
 ```md
 # Project Brief
@@ -176,9 +176,11 @@ Create or update `projectBrief.md` with:
 
 Use reasonable assumptions when details are unknown. Label them as assumptions.
 
+Store the file under `.mlms/projectBrief.md`.
+
 ## Memory Bank Files
 
-`memory-bank/productContext.md`
+`.mlms/memory-bank/productContext.md`
 
 ```md
 # Product Context
@@ -194,7 +196,7 @@ Use reasonable assumptions when details are unknown. Label them as assumptions.
 <what not to build yet>
 ```
 
-`memory-bank/activeContext.md`
+`.mlms/memory-bank/activeContext.md`
 
 ```md
 # Active Context
@@ -213,7 +215,7 @@ Phase: Planning
 <single next action>
 ```
 
-`memory-bank/progress.md`
+`.mlms/memory-bank/progress.md`
 
 ```md
 # Progress
@@ -228,7 +230,7 @@ Phase: Planning
 - Review result.
 ```
 
-`memory-bank/decisionLog.md`
+`.mlms/memory-bank/decisionLog.md`
 
 ```md
 # Decision Log
@@ -243,7 +245,7 @@ Consequences:
 Codex must read and update memory-bank files during each loop.
 ```
 
-`memory-bank/systemPatterns.md`
+`.mlms/memory-bank/systemPatterns.md`
 
 ```md
 # System Patterns
@@ -266,7 +268,7 @@ Every loop should include:
 - next step
 ```
 
-`memory-bank/sprintReview.md`
+`.mlms/memory-bank/sprintReview.md`
 
 ```md
 # Sprint Review
@@ -282,9 +284,9 @@ If missing, create:
 # AGENTS.md
 ## Codex Workflow
 Before doing implementation work:
-1. Read `projectBrief.md`.
-2. Read all files in `memory-bank/`.
-3. Identify current loop phase from `memory-bank/activeContext.md`.
+1. Read `.mlms/projectBrief.md`.
+2. Read all files in `.mlms/memory-bank/`.
+3. Identify current loop phase from `.mlms/memory-bank/activeContext.md`.
 During work:
 1. Keep changes small.
 2. Prefer a vertical slice over broad unfinished edits.
@@ -292,10 +294,10 @@ During work:
 4. Run available tests/checks when possible.
 5. Review diff before proposing commit.
 After meaningful work:
-1. Update `memory-bank/activeContext.md`.
-2. Update `memory-bank/progress.md`.
-3. Update `memory-bank/decisionLog.md` if a decision was made.
-4. Update `memory-bank/sprintReview.md` after review.
+1. Update `.mlms/memory-bank/activeContext.md`.
+2. Update `.mlms/memory-bank/progress.md`.
+3. Update `.mlms/memory-bank/decisionLog.md` if a decision was made.
+4. Update `.mlms/memory-bank/sprintReview.md` after review.
 5. State next recommended action.
 ```
 
@@ -314,10 +316,10 @@ Before committing, perform:
 - Is implementation minimal?
 - Is there avoidable complexity?
 ### Memory
-- Was `memory-bank/activeContext.md` updated?
-- Was `memory-bank/progress.md` updated?
-- Was `memory-bank/decisionLog.md` updated if needed?
-- Was `memory-bank/sprintReview.md` updated?
+- Was `.mlms/memory-bank/activeContext.md` updated?
+- Was `.mlms/memory-bank/progress.md` updated?
+- Was `.mlms/memory-bank/decisionLog.md` updated if needed?
+- Was `.mlms/memory-bank/sprintReview.md` updated?
 ### Decision
 - Commit
 - Fix first
@@ -326,7 +328,7 @@ Before committing, perform:
 
 ## Review Format
 
-Append to `memory-bank/sprintReview.md`:
+Append to `.mlms/memory-bank/sprintReview.md`:
 
 ```md
 ## Loop <N> Review
