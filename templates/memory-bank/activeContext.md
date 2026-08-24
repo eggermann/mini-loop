@@ -9,6 +9,12 @@
 Loop: 1
 Phase: Planning
 
+## Shared Loop Budget
+
+Root Context: .mlms
+Used: 0
+Maximum: 5
+
 ## Current Focus
 
 Initialize project brief, memory bank, and first mini-loop.

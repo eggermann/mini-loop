@@ -68,3 +68,14 @@ Available `Mode:` flags:
 - `init` only initialize `.mlms/projectBrief.md`, `.mlms/AGENTS.md`, and `.mlms/memory-bank/*`
 
 Behavior like context reading, small-slice planning, checks, review-before-commit, memory updates, no auto-push, and 5-loop max is built into the skill.
+
+## Nested Subgoals
+
+Calling the skill again during an active mini-loop creates a linear subgoal
+context in `.mlms/subgoals/<NNN-slug>/` only when its goal is narrower and
+directly advances the unfinished parent. Existing active child resumes first;
+otherwise lowest pending child starts. Parent and children share the five-loop
+budget, with nesting depth capped at 3. Each child has its own context-relative
+brief and memory bank and hands its verified result back to parent. When parent
+GOAL is complete, unfinished children are closed, summaries are retained, and
+only workflow-generated subgoal folders are removed.

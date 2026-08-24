@@ -4,9 +4,10 @@
 
 Before doing implementation work:
 
-1. Read `projectBrief.md`.
-2. Read all files in `memory-bank/`.
-3. Identify current loop phase from `memory-bank/activeContext.md`.
+1. Resolve context root: `.mlms` for main goal or active child directory.
+2. Read `<context-root>/projectBrief.md`.
+3. Read all files in `<context-root>/memory-bank/`.
+4. Identify current loop phase from `<context-root>/memory-bank/activeContext.md`.
 
 During work:
 
@@ -15,14 +16,33 @@ During work:
 3. Record important architectural or product decisions.
 4. Run available tests/checks when possible.
 5. Do not push automatically.
-6. Do not delete files without explicit user approval.
+6. Do not delete files without explicit user approval, except workflow-generated
+   `subgoals/` folders after their parent GOAL is completed and summarized.
+
+## Nested Mini-Loops
+
+Do not infer a child from `.mlms` existence alone. A repeated invocation is a
+child only when parent is unfinished and new GOAL is narrower and directly
+advances it. Create linear child context under
+`<context-root>/subgoals/<NNN-slug>/`. Resume existing `active` child first;
+otherwise start lowest-numbered `pending` child.
+
+Each child records parent goal, subgoal, status, acceptance criteria, and
+handoff in `subgoal.md`. On child completion, copy its concise result and
+verification to the parent memory bank before continuing. On parent-goal
+completion, mark unfinished children `cancelled` or `superseded`, preserve a
+concise summary in parent memory, then remove only workflow-generated
+`subgoals/`. Keep it when parent goal is blocked or incomplete. Parent and
+children share one five-iteration budget; nesting depth may not exceed 3.
+Before every iteration, increment `Used` in root
+`.mlms/memory-bank/activeContext.md`; children never reset this counter.
 
 After meaningful work:
 
-1. Update `memory-bank/activeContext.md`.
-2. Update `memory-bank/progress.md`.
-3. Update `memory-bank/decisionLog.md` if a decision was made.
-4. Update `memory-bank/sprintReview.md` after review.
+1. Update `<context-root>/memory-bank/activeContext.md`.
+2. Update `<context-root>/memory-bank/progress.md`.
+3. Update `<context-root>/memory-bank/decisionLog.md` if a decision was made.
+4. Update `<context-root>/memory-bank/sprintReview.md` after review.
 5. State next recommended action.
 
 ## Auto-Commit Policy
