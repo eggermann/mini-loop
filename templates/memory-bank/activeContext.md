@@ -11,19 +11,19 @@ Phase: Planning
 
 ## Shared Loop Budget
 
-Root Context: .mlms
+MLMS Root: <resolved sibling MLMS root>
+Execution ID: <stable execution ID>
 Used: 0
 Maximum: 5
 
 ## Current Focus
 
-Initialize project brief, memory bank, and first mini-loop.
+Initialize project brief and memory bank for first Mini-Loop.
 
 ## Assumptions
 
-- User wants a small iterative workflow.
-- Memory bank files should be kept in-repo.
-- Auto-push is disabled by default.
+- Project memory is independent from application branch history.
+- Auto-push and auto-merge are disabled.
 
 ## Risks / Unknowns
 

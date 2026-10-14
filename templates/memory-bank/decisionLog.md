@@ -6,11 +6,21 @@
 
 Status: Accepted
 
+Scope: Project-wide
+
 Context:
 Project needs persistent context across Codex/Roo sessions and repeatable development rhythm.
 
 Decision:
-Use a `memory-bank/` directory for durable context and a Scrum/Vibe mini-loop for planning, implementation, review, retrospective, and memory updates.
+Use a Markdown memory bank for durable context and a Scrum/Vibe mini-loop for planning, implementation, review, retrospective, and memory updates.
 
 Consequences:
-Codex must read and update `memory-bank/` files during each loop.
+Codex reads and updates the relevant sibling MLMS context under the shared update lock.
+
+## Proposals
+
+Branch-local experiments remain proposals until reviewed. Preserve conflicting proposals and require explicit resolution before promoting one to project-wide accepted status.
+
+## Superseded Decisions
+
+None.

@@ -1,56 +1,62 @@
 # Mini Loop Memory Scrum
 
-This project packages a Codex skill plus bootstrap scripts for an autonomous mini-loop workflow built around:
+Mini-Loop is a Codex skill and shell toolkit for GOAL-driven planning, implementation, review, retrospective, and durable project memory.
 
-- Roo Code style Memory Bank project context
-- Scrum/Vibe planning, review, and retrospective rhythm
-- Autonomous build-plan-review loop
-- Guarded auto-commit after green checks
-- No auto-push by default
+Project intent lives in an independent sibling Git repository named `.mlms-<canonical-app-folder>`. For `workspace/my-app`, memory lives in `workspace/.mlms-my-app`. Linked worktrees share that repository; application and MLMS histories stay separate.
 
-## Create Project
+## Create Project Package
 
 ```sh
-sh mini-loop/create.sh mini-loop
+sh create.sh mini-loop-package
 ```
 
+The generated package includes skill, runtime helpers, templates, and installers.
+
 ## Install Skill
+
+Local install:
 
 ```sh
 sh install-skill.sh
 ```
 
-No-clone install from GitHub:
+No-clone install:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/eggermann/mini-loop/main/install-from-github.sh | sh
 ```
 
-Installs to:
+Both install `SKILL.md`, runtime helpers, and templates into:
 
 ```sh
 ${CODEX_HOME:-$HOME/.codex}/skills/mini-loop-memory-scrum
 ```
 
-Then restart Codex.
+Restart Codex after installation.
 
-If you want install from another branch or fork, pass raw base URL:
+For another branch/fork, pass its raw base URL:
 
 ```sh
 sh install-from-github.sh https://raw.githubusercontent.com/<owner>/<repo>/<branch>
 ```
 
-## Initialize Memory In Another Repo
+## Initialize Project Memory
 
-From target repo:
+From an application checkout:
 
 ```sh
 /path/to/mini-loop/init-project-memory.sh .
 ```
 
-This creates `.mlms/projectBrief.md`, `.mlms/AGENTS.md`, and `.mlms/memory-bank/*` only when missing.
+This resolves the canonical app repository and initializes its sibling MLMS Git repository. If embedded `.mlms/` already contains memory, use the safe migration helper:
 
-## Start Prompt
+```sh
+/path/to/mini-loop/migrate-project-memory.sh .
+```
+
+Migration preserves original files, refuses conflicting destination content, and never deletes legacy `.mlms/`.
+
+## Start a Mini-Loop
 
 ```text
 Use the mini-loop-memory-scrum skill.
@@ -60,22 +66,8 @@ Mode:
 auto
 ```
 
-Available `Mode:` flags:
+Modes: `auto` (default), `guided`, `review`, and `init`. Autonomous runs remain bounded to five iterations. Child work inherits its execution budget; independently assigned worktrees use separate execution IDs and counters.
 
-- `auto` full autonomous mini-loop, default
-- `guided` plan and implement one slice, then stop for user input
-- `review` inspect, run checks, review diff, update memory if needed, no broad implementation pass
-- `init` only initialize `.mlms/projectBrief.md`, `.mlms/AGENTS.md`, and `.mlms/memory-bank/*`
+The workflow supports explicit branch/worktree subgoal assignments. Agents load shared project vision and accepted decisions plus only their assigned subgoal context. `select-context.sh` selects work; `reconcile-subgoal.sh` records merge evidence under lock. Git ancestry can prove a normal merge; branch deletion is not proof and uncertain squash state remains `unknown`. Reconciliation preserves acceptance criteria and leaves completion decisions to the Mini-Loop review.
 
-Behavior like context reading, small-slice planning, checks, review-before-commit, memory updates, no auto-push, and 5-loop max is built into the skill.
-
-## Nested Subgoals
-
-Calling the skill again during an active mini-loop creates a linear subgoal
-context in `.mlms/subgoals/<NNN-slug>/` only when its goal is narrower and
-directly advances the unfinished parent. Existing active child resumes first;
-otherwise lowest pending child starts. Parent and children share the five-loop
-budget, with nesting depth capped at 3. Each child has its own context-relative
-brief and memory bank and hands its verified result back to parent. When parent
-GOAL is complete, unfinished children are closed, summaries are retained, and
-only workflow-generated subgoal folders are removed.
+Application and MLMS commits are separate and require permission under the configured policy. No automatic push or merge occurs. A Git merge alone never completes a parent GOAL.
