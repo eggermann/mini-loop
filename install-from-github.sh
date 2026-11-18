@@ -9,12 +9,13 @@ cleanup() {
   rm -rf "$TMP_DIR" "$STAGING_DIR"
 }
 trap cleanup EXIT INT TERM
-mkdir -p "$TMP_DIR/bin/templates/memory-bank"
+mkdir -p "$TMP_DIR/bin/templates/memory-bank" "$TMP_DIR/references"
 fetch() {
   curl -fsSL "$REPO_URL/$1" -o "$TMP_DIR/$2"
 }
 fetch "skills/mini-loop-memory-scrum/SKILL.md" "SKILL.md"
-for file in resolve-project.sh mlms-lock.sh init-project-memory.sh migrate-project-memory.sh select-context.sh loop-budget.sh reconcile-subgoal.sh mlms-commit.sh; do
+fetch "skills/mini-loop-memory-scrum/references/orchestration.md" "references/orchestration.md"
+for file in resolve-project.sh mlms-lock.sh init-project-memory.sh migrate-project-memory.sh select-context.sh loop-budget.sh reconcile-subgoal.sh mlms-commit.sh orchestrate.py; do
   fetch "$file" "bin/$file"
 done
 fetch "templates/AGENTS.md" "bin/templates/AGENTS.md"
@@ -26,6 +27,7 @@ done
 mkdir -p "$STAGING_DIR"
 cp "$TMP_DIR/SKILL.md" "$STAGING_DIR/SKILL.md"
 cp -R "$TMP_DIR/bin" "$STAGING_DIR/bin"
+cp -R "$TMP_DIR/references" "$STAGING_DIR/references"
 chmod +x "$STAGING_DIR/bin/"*.sh
 mkdir -p "$(dirname "$TARGET_DIR")"
 rm -rf "$TARGET_DIR"

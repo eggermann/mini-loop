@@ -7,7 +7,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 mkdir -p "$PROJECT_DIR/skills/mini-loop-memory-scrum" "$PROJECT_DIR/templates/memory-bank"
 cp "$SCRIPT_DIR/README.md" "$PROJECT_DIR/README.md"
 cp "$SCRIPT_DIR/create.sh" "$PROJECT_DIR/create.sh"
-for file in init-project-memory.sh resolve-project.sh mlms-lock.sh migrate-project-memory.sh select-context.sh loop-budget.sh reconcile-subgoal.sh mlms-commit.sh install-skill.sh install-from-github.sh; do
+for file in init-project-memory.sh resolve-project.sh mlms-lock.sh migrate-project-memory.sh select-context.sh loop-budget.sh reconcile-subgoal.sh mlms-commit.sh orchestrate.py install-skill.sh install-from-github.sh; do
   cp "$SCRIPT_DIR/$file" "$PROJECT_DIR/$file"
 done
 cp -R "$SCRIPT_DIR/skills/mini-loop-memory-scrum/." "$PROJECT_DIR/skills/mini-loop-memory-scrum/"

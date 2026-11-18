@@ -1,6 +1,6 @@
 ---
 name: mini-loop-memory-scrum
-description: Initialize a Codex-compatible memory bank from a user GOAL, create a project brief, and run a guarded Scrum/Vibe autonomous mini-loop until goal is reached or blocked.
+description: Use for a Mini-Loop GOAL, project memory, Scrum plan and review cycles, or coordinating Codex chats on subgoals with shared checkpoints and user decisions.
 ---
 
 # Mini-Loop Memory Scrum Skill
@@ -21,6 +21,7 @@ Mode:
 Available modes:
 
 - `auto`: Default. Run bounded autonomous mini-loop using defaults in this file.
+- `orchestrate`: The main chat coordinates subgoals, reviews evidence, and pauses the run for user decisions. Read [Orchestration](references/orchestration.md) before starting or resuming. The five-iteration budget applies only to the regular loop; use the orchestration guards in this mode.
 - `guided`: Build plan, implement one smallest useful slice, run checks, review diff, update memory, then stop and ask for direction.
 - `review`: Review existing work, run available checks, inspect diff, update memory if useful, and do not run a broad implementation pass.
 - `init`: Resolve canonical application identity, then initialize sibling MLMS context only when no legacy embedded memory requires migration. Do not run implementation loop.
@@ -81,7 +82,7 @@ Before reading project memory or implementation work:
 4. If sibling is absent, inspect `<application_root>/.mlms`. If it contains memory, run `bin/migrate-project-memory.sh <worktree_root>`; otherwise run `bin/init-project-memory.sh <worktree_root>`.
 5. Run `bin/select-context.sh <worktree_root>` to get `context_root`, `subgoal_id`, and stable `execution_id`. Never select by folder basename alone.
 6. Load shared project vision and accepted decisions, then parent GOAL, assigned subgoal, relevant handoffs/dependencies, and that execution's budget. Do not load unrelated branch execution chatter.
-7. Before each iteration, call `bin/loop-budget.sh <worktree_root> <execution-id> increment`. Nested work keeps inherited execution ID.
+7. In the regular loop, call `bin/loop-budget.sh <worktree_root> <execution-id> increment` before each iteration. Nested work keeps the inherited execution ID. In `orchestrate`, use the orchestrator's registered work assignments and checkpoint commands.
 
 Application Git owns implementation history. Sibling MLMS Git owns project intent and Scrum state. They are separate repositories; never stage files across them. Use `bin/mlms-lock.sh <worktree-root> -- <update-command>` around MLMS mutations. Reconciliation uses `bin/reconcile-subgoal.sh <worktree-root> <subgoal-id> <target-branch>`. After meaningful MLMS changes, commit only with permission and explicit paths using `bin/mlms-commit.sh <worktree-root> <message> <mlms-relative-path>...`; it creates no commit for unchanged content.
 
@@ -262,6 +263,8 @@ Stop when any of these is true:
 - Large dependency is required.
 - Unrelated dirty changes exist.
 - Max loop count is reached.
+
+In `orchestrate`, use the pause, escalation, and completion rules in the orchestration reference instead of the regular loop count and stop rules.
 
 ## Project Brief
 

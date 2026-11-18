@@ -7,9 +7,10 @@ TARGET_DIR="${CODEX_HOME:-$HOME/.codex}/skills/mini-loop-memory-scrum"
 STAGING_DIR="${TARGET_DIR}.install.$$"
 
 [ -f "$SOURCE_DIR/SKILL.md" ] || { echo "Missing source skill: $SOURCE_DIR/SKILL.md" >&2; exit 1; }
-mkdir -p "$STAGING_DIR/bin/templates/memory-bank"
+mkdir -p "$STAGING_DIR/bin/templates/memory-bank" "$STAGING_DIR/references"
 cp "$SOURCE_DIR/SKILL.md" "$STAGING_DIR/SKILL.md"
-for file in resolve-project.sh mlms-lock.sh init-project-memory.sh migrate-project-memory.sh select-context.sh loop-budget.sh reconcile-subgoal.sh mlms-commit.sh; do
+cp "$SOURCE_DIR/references/orchestration.md" "$STAGING_DIR/references/orchestration.md"
+for file in resolve-project.sh mlms-lock.sh init-project-memory.sh migrate-project-memory.sh select-context.sh loop-budget.sh reconcile-subgoal.sh mlms-commit.sh orchestrate.py; do
   [ -f "$SCRIPT_DIR/$file" ] || { echo "Missing runtime helper: $SCRIPT_DIR/$file" >&2; exit 1; }
   cp "$SCRIPT_DIR/$file" "$STAGING_DIR/bin/$file"
 done
