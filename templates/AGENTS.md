@@ -4,7 +4,7 @@
 
 Before implementation:
 
-1. Resolve application root, branch, worktree, canonical sibling MLMS root, and active GOAL/subgoal.
+1. Resolve application root, branch, worktree, shared MLMS root, and active GOAL/subgoal.
 2. Read `<mlms-root>/projectBrief.md`, shared accepted decisions, assigned parent/subgoal, relevant handoffs, dependencies, and execution budget.
 3. Identify current phase from the active execution context. Load only relevant branch/worktree detail; global accepted decisions remain visible.
 

@@ -2,7 +2,18 @@
 
 Mini-Loop is a Codex skill and shell toolkit for GOAL-driven planning, implementation, review, retrospective, and durable project memory.
 
-Project intent lives in an independent sibling Git repository named `.mlms-<canonical-app-folder>`. For `workspace/my-app`, memory lives in `workspace/.mlms-my-app`. Linked worktrees share that repository; application and MLMS histories stay separate.
+Project intent lives in an independent Git repository. By default, `workspace/my-app` uses `workspace/.mlms-my-app`. Linked worktrees share the same MLMS root.
+
+### Choose a shared MLMS path
+
+Set one absolute path outside the application worktrees in the application's local Git config:
+
+```sh
+git config --local mlms.root "$HOME/project-memory/my-app"
+sh init-project-memory.sh .
+```
+
+Linked worktrees read the same setting. Separate clones on the same host can explicitly set the same path. They then share the MLMS repo and its write lock. Set or change the path between runs. If MLMS already exists and you want to move it, move or clone the **whole memory repository**, including its Git history, before pointing the application at the new location. Setting the path does not move existing data. Use `git config --local --unset-all mlms.root` to return to the default. The setting is local to each clone and is not pushed.
 
 ## Create Project Package
 
@@ -48,7 +59,7 @@ From an application checkout:
 /path/to/mini-loop/init-project-memory.sh .
 ```
 
-This resolves the canonical app repository and initializes its sibling MLMS Git repository. If embedded `.mlms/` already contains memory, use the safe migration helper:
+This resolves the canonical app repository and initializes its configured or default MLMS Git repository. If embedded `.mlms/` already contains memory, use the safe migration helper:
 
 ```sh
 /path/to/mini-loop/migrate-project-memory.sh .

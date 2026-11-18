@@ -32,4 +32,4 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 130' HUP INT TERM
-"$@"
+MLMS_LOCKED_ROOT="$MLMS_ROOT" "$@"

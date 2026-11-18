@@ -4,7 +4,7 @@ The main chat owns the parent GOAL, worker assignments, decisions, and integrati
 
 ## Start or resume
 
-Resolve the application and initialize the independent sibling MLMS repository as described in the skill. Use Python 3.8 or later and run `python3 <skill-dir>/bin/orchestrate.py <checkout> <run-id> <command>` for the commands below. In a source checkout the helper is `orchestrate.py` at the repo root. Use a stable run ID and persist it with the parent GOAL in parent active context. The helper keeps `orchestration/<run-id>/run.json` under the canonical MLMS root with atomic updates under the shared lock.
+Resolve the application and initialize its independent MLMS repository as described in the skill. Use Python 3.8 or later and run `python3 <skill-dir>/bin/orchestrate.py <checkout> <run-id> <command>` for the commands below. In a source checkout the helper is `orchestrate.py` at the repo root. Use a stable run ID and persist it with the parent GOAL in parent active context. The helper keeps `orchestration/<run-id>/run.json` under the resolved MLMS root with atomic updates under the shared lock.
 
 - New run: use `init "<parent goal>"` and document how the parent GOAL will be verified. On resumption, use `status` on the same run. Never reset its budget or bypass a pause by initializing another run for the same GOAL.
 - Split independent work into subgoals with expected outputs, testable criteria, prerequisites, and file ownership. Use linked worktrees when parallel edits could conflict. Verify that every worker resolves the same MLMS root before work. Keep dependent work queued in the parent's plan until its inputs are ready. Only the main chat dispatches workers.

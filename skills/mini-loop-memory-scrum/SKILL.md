@@ -24,7 +24,7 @@ Available modes:
 - `orchestrate`: The main chat coordinates subgoals, reviews evidence, and pauses the run for user decisions. Read [Orchestration](references/orchestration.md) before starting or resuming. The five-iteration budget applies only to the regular loop; use the orchestration guards in this mode.
 - `guided`: Build plan, implement one smallest useful slice, run checks, review diff, update memory, then stop and ask for direction.
 - `review`: Review existing work, run available checks, inspect diff, update memory if useful, and do not run a broad implementation pass.
-- `init`: Resolve canonical application identity, then initialize sibling MLMS context only when no legacy embedded memory requires migration. Do not run implementation loop.
+- `init`: Resolve canonical application identity, then initialize the MLMS context only when no legacy embedded memory requires migration. Do not run implementation loop.
 
 If `Mode:` is omitted, use `auto`.
 
@@ -56,7 +56,7 @@ If user already provided a clear goal, do not ask again.
 
 At start of project, inspect repository.
 
-If sibling MLMS is missing and no embedded legacy memory exists, initialize these at `<mlms-root>`:
+If the resolved MLMS repository is missing and no embedded legacy memory exists, initialize these at `<mlms-root>`:
 
 - `projectBrief.md`
 - `AGENTS.md`
@@ -79,14 +79,14 @@ Before reading project memory or implementation work:
 1. Run installed `bin/resolve-project.sh` against current checkout.
 2. Record `application_root`, current `branch` (or `DETACHED`), `worktree_root`, `git_common_dir`, and `mlms_root`.
 3. Verify `mlms_root` is independent Git root. If identity is ambiguous, primary worktree missing, or Git roots disagree, stop without creating state.
-4. If sibling is absent, inspect `<application_root>/.mlms`. If it contains memory, run `bin/migrate-project-memory.sh <worktree_root>`; otherwise run `bin/init-project-memory.sh <worktree_root>`.
+4. If the resolved MLMS repository is absent, inspect `<application_root>/.mlms`. If it contains memory, run `bin/migrate-project-memory.sh <worktree_root>`; otherwise run `bin/init-project-memory.sh <worktree_root>`.
 5. Run `bin/select-context.sh <worktree_root>` to get `context_root`, `subgoal_id`, and stable `execution_id`. Never select by folder basename alone.
 6. Load shared project vision and accepted decisions, then parent GOAL, assigned subgoal, relevant handoffs/dependencies, and that execution's budget. Do not load unrelated branch execution chatter.
 7. In the regular loop, call `bin/loop-budget.sh <worktree_root> <execution-id> increment` before each iteration. Nested work keeps the inherited execution ID. In `orchestrate`, use the orchestrator's registered work assignments and checkpoint commands.
 
-Application Git owns implementation history. Sibling MLMS Git owns project intent and Scrum state. They are separate repositories; never stage files across them. Use `bin/mlms-lock.sh <worktree-root> -- <update-command>` around MLMS mutations. Reconciliation uses `bin/reconcile-subgoal.sh <worktree-root> <subgoal-id> <target-branch>`. After meaningful MLMS changes, commit only with permission and explicit paths using `bin/mlms-commit.sh <worktree-root> <message> <mlms-relative-path>...`; it creates no commit for unchanged content.
+Application Git owns implementation history. MLMS Git owns project intent and Scrum state. They are separate repositories; never stage files across them. Use `bin/mlms-lock.sh <worktree-root> -- <update-command>` around MLMS mutations. Reconciliation uses `bin/reconcile-subgoal.sh <worktree-root> <subgoal-id> <target-branch>`. After meaningful MLMS changes, commit only with permission and explicit paths using `bin/mlms-commit.sh <worktree-root> <message> <mlms-relative-path>...`; it creates no commit for unchanged content.
 
-In these rules, **MLMS root** means the resolver-provided sibling `.mlms-<canonical-repository-folder-name>`. **Context root** means that MLMS root for project-level work or the assigned `<mlms-root>/subgoals/<NNN-slug>` for a child. Every context path resolves from the selected root, never from the application checkout.
+The **MLMS root** is the absolute path returned by the resolver. An explicit `mlms.root` in the application's local Git configuration takes precedence over the default sibling `.mlms-<canonical-repository-folder-name>`. Linked worktrees share that configuration. Separate clones can opt in to the same physical location. Keep the path stable while a run is active and preserve the existing memory repository before switching locations. The **context root** is that MLMS root for project-level work or its assigned `subgoals/<NNN-slug>` for a child.
 
 ## Nested Mini-Loops and Subgoals
 
@@ -336,7 +336,7 @@ The `Shared Loop Budget` section identifies the execution. Authoritative `Used` 
 Loop: 1
 Phase: Planning
 ## Shared Loop Budget
-MLMS Root: <resolved-sibling-mlms-root>
+MLMS Root: <resolved-mlms-root>
 Execution ID: <stable-execution-id>
 Used: 0
 Maximum: 5
@@ -419,7 +419,7 @@ If missing, create:
 # AGENTS.md
 ## Codex Workflow
 Before doing implementation work:
-1. Resolve app root, branch, worktree, canonical sibling MLMS root, and active GOAL/subgoal.
+1. Resolve app root, branch, worktree, shared MLMS root, and active GOAL/subgoal.
 2. Read `<mlms-root>/projectBrief.md`, shared accepted decisions, assigned parent/subgoal, relevant handoffs, and execution budget.
 3. Identify current loop phase from active execution context.
 4. Load only relevant branch/worktree execution detail; retain visibility of global accepted decisions.
