@@ -225,19 +225,15 @@ auto
 
 ## Context Read Order
 
-Before each loop:
-
-1. Read the current context's `projectBrief.md`.
-2. Read all files in the current context's `memory-bank/`.
-3. Inspect dirty working tree state.
-4. Identify current loop phase from the current context's `memory-bank/activeContext.md`.
-5. For a subgoal, also read its parent brief/active context and preceding sibling handoffs.
+1. When starting or resuming, load the current goal and criteria from `projectBrief.md`, then read `memory-bank/activeContext.md` and relevant accepted decisions and handoffs. A subgoal also needs a short statement of the parent goal.
+2. Before each new slice, inspect the working tree and refresh active context, budget, and relevant decisions or handoffs that changed. Recheck shared state under the lock before writing it.
+3. Open archived reviews or other memory files only when needed for a decision, check, or handoff.
 
 ## Loop Contract
 
 For each iteration:
 
-1. Restate current GOAL.
+1. Confirm the current goal and criteria from context.
 2. Select smallest next backlog item.
 3. Define acceptance criteria.
 4. Implement only that slice.
@@ -506,16 +502,7 @@ Append after each loop:
 
 ## Output Style
 
-Always show:
-
-1. What was initialized or changed.
-2. Current loop phase.
-3. Checks run.
-4. Files created or updated.
-5. Commit status.
-6. Next action.
-
-Be concise and operational.
+Report material changes, decisions, blockers, and verified outcomes. Include checks, files, or commit status when useful for review. In orchestration mode, let MLMS checkpoints carry routine progress. Keep worker replies brief and surface user decisions or verified results from the main chat.
 
 ## Safety Rules
 

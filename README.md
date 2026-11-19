@@ -83,6 +83,8 @@ Modes: `auto` (default), `guided`, `review`, `init`, and `orchestrate`. The regu
 
 Set `Mode:` to `orchestrate` and state whether to create Codex chats for subgoals and send them follow-ups. The mode requires Python 3.8 or later. The run can use up to 100 chats including the main chat, with up to three workers active at once. The main chat records verified results in the project memory bank.
 
+`status` shows open workers with their latest checkpoints. Use `status --since <cursor>` for subsequent polls and `status --full` for history. Accepted work and completed runs are archived inside MLMS. Archived workers still count toward the chat limit.
+
 A pause blocks new work through the coordinator and asks workers to checkpoint. Waiting for a checkpoint or manually interrupting a chat may be necessary when its backend cannot stop a running turn directly. See the [orchestration workflow](skills/mini-loop-memory-scrum/references/orchestration.md).
 
 The workflow supports explicit branch/worktree subgoal assignments. Agents load shared project vision and accepted decisions plus only their assigned subgoal context. `select-context.sh` selects work; `reconcile-subgoal.sh` records merge evidence under lock. Git ancestry can prove a normal merge; branch deletion is not proof and uncertain squash state remains `unknown`. Reconciliation preserves acceptance criteria and leaves completion decisions to the Mini-Loop review.

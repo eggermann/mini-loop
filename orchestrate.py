@@ -54,12 +54,16 @@ def memory_path(checkout, run_id):
 
 
 def save(path, state):
+    write_atomic(path, json.dumps(state, ensure_ascii=False, indent=2) + "\n")
+
+
+def write_atomic(path, content):
+    require(path.resolve() == path, "orchestration files must not be symlinks")
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
                                      delete=False) as partial:
         try:
-            json.dump(state, partial, ensure_ascii=False, indent=2)
-            partial.write("\n")
+            partial.write(content)
             partial.close()
             Path(partial.name).replace(path)
         finally:
@@ -68,6 +72,92 @@ def save(path, state):
 
 def running(state):
     return [record for record in state["workers"].values() if record["status"] == "running"]
+
+
+def read_state(path):
+    require(path.resolve() == path, "orchestration files must not be symlinks")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def worker_archive(path, worker_id):
+    return path.parent / "archive" / "workers" / f"{identifier(worker_id)}.json"
+
+
+def archive_terminal_work(path, state):
+    if state.get("archived"):
+        return state
+
+    for worker_id, worker in state["workers"].items():
+        if worker["status"] not in FINISHED or worker.get("archived"):
+            continue
+        save(worker_archive(path, worker_id), worker)
+        keep = ("goal", "status", "backend", "host", "handle", "updated", "revision", "ticket")
+        state["workers"][worker_id] = {
+            **{key: worker[key] for key in keep if key in worker}, "archived": True,
+        }
+
+    if state["phase"] != "complete":
+        return state
+
+    archive = path.parent / "archive"
+    save(archive / "run.json", state)
+    lines = ["# " + state["run"], "", "Goal: " + state["goal"], "",
+             "Result: " + state["result"], "",
+             "Open items: " + state.get("remaining", "See result."), "", "## Decisions"]
+    for decision in state["decisions"]:
+        lines.append(f'- {decision["question"]} → {decision["answer"]}')
+    if not state["decisions"]:
+        lines.append("- None recorded.")
+    write_atomic(archive / "summary.md", "\n".join(lines) + "\n")
+    # Keep the run ID, cursor and chat count available without loading its archive.
+    keep = ("run", "goal", "phase", "epoch", "revision", "result")
+    return {**{key: state[key] for key in keep if key in state}, "archived": True,
+            "chats_counted": 1 + len(state["workers"])}
+
+
+def status_view(path, state, args):
+    revision = state.get("revision", 0)
+    workers = state.get("workers", {})
+    counts = {"chat_limit": MAX_CHATS, "parallel_workers": PARALLEL_WORKERS,
+              "chats_counted": state.get("chats_counted", 1 + len(workers))}
+    if args.full or args.worker:
+        if state.get("archived"):
+            state = read_state(path.parent / "archive" / "run.json")
+        workers = state["workers"]
+        if args.worker:
+            require(args.worker in workers, "unknown worker")
+            workers = {args.worker: workers[args.worker]}
+        details = {key: read_state(worker_archive(path, key)) if worker.get("archived") else worker
+                   for key, worker in workers.items()}
+        if args.worker:
+            return details[args.worker]
+        return {**counts, **state, "cursor": revision, "workers": details}
+
+    if args.since is not None:
+        require(0 <= args.since <= revision, "cursor is outside this run's revision range")
+        if state.get("archived") and args.since < revision:
+            workers = read_state(path.parent / "archive" / "run.json")["workers"]
+    result = {**counts, "run": state["run"], "phase": state["phase"],
+              "epoch": state["epoch"], "cursor": revision, "workers": {}}
+    for field in ("question", "result"):
+        if field in state:
+            result[field] = state[field]
+    if state["phase"] == "complete":
+        result["archive_summary"] = "archive/summary.md" if state.get("archived") else None
+    for key, worker in workers.items():
+        if args.since is None:
+            if worker["status"] in FINISHED:
+                continue
+        elif worker.get("revision", 0) <= args.since:
+            continue
+        fields = ("goal", "status", "updated", "backend", "host", "handle", "interruption")
+        row = {field: worker[field] for field in fields if field in worker}
+        if worker.get("checkpoints"):
+            row["checkpoint"] = worker["checkpoints"][-1]
+        if worker.get("archived"):
+            row["archived"] = True
+        result["workers"][key] = row
+    return result
 
 
 def read_checkpoint():
@@ -83,13 +173,10 @@ def read_checkpoint():
 
 
 def transition(state, args):
+    require(state["phase"] != "complete", "this run is complete")
     command = args.command
     workers = state["workers"]
-    if command == "status":
-        return {"chat_limit": MAX_CHATS, "chats_counted": 1 + len(workers),
-                "parallel_workers": PARALLEL_WORKERS, **state}
 
-    require(state["phase"] != "complete", "this run is complete")
     if command == "reserve":
         require(state["phase"] == "running", "dispatch paused")
         require(args.worker not in workers, "worker already reserved")
@@ -118,7 +205,7 @@ def transition(state, args):
         require(state["phase"] == "running", "resolve the pause first")
         require(all(record["status"] in FINISHED for record in workers.values()),
                 "settle all workers before completing the run")
-        state.update(phase="complete", result=args.result)
+        state.update(phase="complete", result=args.result, remaining=args.remaining)
         return {"phase": state["phase"]}
 
     require(args.worker in workers, "unknown worker")
@@ -149,8 +236,8 @@ def transition(state, args):
         if args.outcome == "blocked":
             require(checkpoint["blocker"].strip(), "a blocked checkpoint needs a reason")
         entry = {"ticket": args.ticket, "at": timestamp(), **checkpoint}
-        recent = worker.get("checkpoints", [])
-        worker.update(status=args.outcome, checkpoints=[*recent[-2:], entry])
+        worker.setdefault("checkpoints", []).append(entry)
+        worker["status"] = args.outcome
     elif command == "interrupt":
         require(status == "running", "worker has no active slice")
         worker.update(status="interrupted", interruption=args.evidence)
@@ -174,11 +261,18 @@ def parse(argv):
     parser.add_argument("checkout")
     parser.add_argument("run", type=identifier)
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("status")
+    status = commands.add_parser("status")
+    view = status.add_mutually_exclusive_group()
+    view.add_argument("--since", type=int, metavar="CURSOR")
+    view.add_argument("--full", action="store_true")
+    view.add_argument("--worker", type=identifier)
+    commands.add_parser("clean", help="archive finished work in existing runs")
     commands.add_parser("init").add_argument("goal", type=nonempty)
     commands.add_parser("pause").add_argument("question", type=nonempty)
     commands.add_parser("resume").add_argument("decision", type=nonempty)
-    commands.add_parser("complete").add_argument("result", type=nonempty)
+    complete = commands.add_parser("complete")
+    complete.add_argument("result", type=nonempty)
+    complete.add_argument("--remaining", type=nonempty, default="None recorded.")
     for name in ("reserve", "bind", "begin", "guard", "report", "interrupt",
                  "accept", "rework", "cancel"):
         commands.add_parser(name).add_argument("worker", type=identifier)
@@ -207,17 +301,30 @@ def main(argv):
 
     if args.command == "init":
         require(not path.exists(), "run already exists; resume it via status")
-        state = {"run": args.run, "goal": args.goal, "phase": "running", "epoch": 1,
+        state = {"run": args.run, "goal": args.goal, "phase": "running", "epoch": 1, "revision": 0,
                  "workers": {}, "decisions": []}
-        result = state
+        result = {"run": args.run, "phase": "running", "epoch": 1, "cursor": 0}
     else:
         require(path.is_file(), "run does not exist")
-        state = json.loads(path.read_text(encoding="utf-8"))
-        result = transition(state, args)
+        state = read_state(path)
+        if args.command == "status":
+            result = status_view(path, state, args)
+        elif args.command == "clean":
+            result = {"phase": state["phase"]}
+        else:
+            result = transition(state, args)
+            if not read_only:
+                state["revision"] = state.get("revision", 0) + 1
+                if hasattr(args, "worker"):
+                    worker = state["workers"][args.worker]
+                    worker["revision"] = state["revision"]
+                    fields = ("status", "ticket")
+                    result = {"worker": args.worker, **{key: worker[key] for key in fields}}
 
     if not read_only:
+        state = archive_terminal_work(path, state)
         save(path, state)
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
     return 0
 
 
