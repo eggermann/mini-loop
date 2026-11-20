@@ -32,7 +32,7 @@ If `Mode:` is omitted, use `auto`.
 
 If the current goal can be handled directly, keep the work in the main chat. A backlog item or an old `subgoals/` directory is insufficient to start orchestration. When the current goal has a narrower, independently verifiable subgoal to start or resume, the main chat coordinates it. Read [Orchestration](references/orchestration.md) when coordinating or resuming such work. Continue an existing run by its recorded ID.
 
-Use approved delegation for suitable subgoals. Creating or messaging separate Codex chats requires the user's authorization. When delegation is unavailable or unauthorized, the main chat handles the subgoals in sequence. A chat assigned a subgoal follows the coordinator's work order through its checkpoint and hands control back.
+Prefer parallel execution for independent, ready subgoals when delegation is authorized and their branch/worktree assignments are distinct. Start ready workers up to the available slots before waiting. Run dependent work in order. Creating or messaging separate Codex chats requires the user's authorization. When delegation or safe isolation is unavailable, the main chat handles the subgoals in sequence. A worker follows its assignment through its checkpoint and hands control back.
 
 ## Trigger
 
@@ -126,7 +126,7 @@ Create child context under the active MLMS context root:
       memory-bank/
 ```
 
-For deeper nesting, use active child context as current root, so children live in `.../subgoals/<id>/subgoals/`. Number siblings in creation order with zero-padded numbers. Unassigned sequential work resumes active child first, else lowest pending child. Explicitly assigned parallel children may both be active when branch/worktree assignments are distinct and non-conflicting.
+For deeper nesting, use active child context as current root, so children live in `.../subgoals/<id>/subgoals/`. Number siblings in creation order with zero-padded numbers. For sequential work, resume an active child first or start the lowest pending child whose prerequisites are met.
 
 `subgoal.md` must contain:
 
