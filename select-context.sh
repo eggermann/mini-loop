@@ -22,6 +22,7 @@ selected=
 selected_depth=0
 matches_at_depth=0
 any_assigned_active=false
+LEGACY_LIST=
 if [ -d "$SUBGOAL_ROOT" ]; then
   FILE_LIST=$(mktemp "${TMPDIR:-/tmp}/mlms-contexts.XXXXXX")
   MATCH_LIST=$(mktemp "${TMPDIR:-/tmp}/mlms-matches.XXXXXX")
@@ -93,7 +94,7 @@ if [ -n "$selected" ]; then
     esac
   done < "$LEGACY_LIST"
   [ "$matches_at_depth" -le 1 ] || { echo "select-context: multiple active nested subgoals match this execution" >&2; exit 75; }
-elif [ "$any_assigned_active" = false ]; then
+elif [ -n "$LEGACY_LIST" ] && [ "$any_assigned_active" = false ]; then
   # Backward compatibility: a single active legacy child resumes in a sequential workflow.
   while IFS= read -r file; do
     [ -n "$file" ] || continue

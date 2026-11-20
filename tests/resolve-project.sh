@@ -342,7 +342,20 @@ LOCAL_APP="$TMP_ROOT/workspace with spaces/local-installed-app"
 mkdir -p "$LOCAL_APP"
 git -C "$LOCAL_APP" init -q
 "$LOCAL_CODEX_HOME/skills/mini-loop-memory-scrum/bin/init-project-memory.sh" "$LOCAL_APP" >/dev/null
-[ -d "$TMP_ROOT/workspace with spaces/.mlms-local-installed-app/.git" ] || fail "local installed initializer cannot find installed templates"
+LOCAL_MLMS="$TMP_ROOT/workspace with spaces/.mlms-local-installed-app"
+[ -d "$LOCAL_MLMS/.git" ] || fail "local installed initializer cannot find installed templates"
+LOCAL_SELECTOR="$LOCAL_CODEX_HOME/skills/mini-loop-memory-scrum/bin/select-context.sh"
+[ ! -e "$LOCAL_MLMS/subgoals" ] || fail "expected a project without a subgoals directory"
+project_context=$("$LOCAL_SELECTOR" "$LOCAL_APP")
+[ "$(printf '%s\n' "$project_context" | sed -n 's/^context_root=//p')" = "$LOCAL_MLMS" ] ||
+  fail "selector did not use the project root without subgoals: $project_context"
+printf '%s\n' "$project_context" | grep -qx 'subgoal_id=' ||
+  fail "selector returned a subgoal for a fresh project"
+[ ! -e "$LOCAL_MLMS/subgoals" ] || fail "context selection created a subgoals directory"
+mkdir "$LOCAL_MLMS/subgoals"
+[ "$("$LOCAL_SELECTOR" "$LOCAL_APP")" = "$project_context" ] ||
+  fail "empty subgoals directory changed the project context"
+
 RAW_CODEX_HOME="$TMP_ROOT/codex raw"
 CODEX_HOME="$RAW_CODEX_HOME" "$SCRIPT_DIR/install-from-github.sh" "file://$SCRIPT_DIR" >/dev/null
 for file in SKILL.md bin/resolve-project.sh bin/mlms-lock.sh bin/init-project-memory.sh bin/migrate-project-memory.sh bin/select-context.sh bin/loop-budget.sh bin/reconcile-subgoal.sh bin/mlms-commit.sh bin/templates/AGENTS.md bin/templates/projectBrief.md bin/templates/memory-bank/activeContext.md bin/templates/memory-bank/productContext.md bin/templates/memory-bank/progress.md bin/templates/memory-bank/decisionLog.md bin/templates/memory-bank/systemPatterns.md bin/templates/memory-bank/sprintReview.md; do
