@@ -9,12 +9,10 @@
 Loop: 1
 Phase: Planning
 
-## Shared Loop Budget
+## Execution
 
-MLMS Root: <resolved sibling MLMS root>
+MLMS Root: <resolved MLMS root>
 Execution ID: <stable execution ID>
-Used: 0
-Maximum: 5
 
 ## Current Focus
 

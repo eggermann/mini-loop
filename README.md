@@ -77,11 +77,11 @@ Mode:
 auto
 ```
 
-Modes: `auto` (default), `guided`, `review`, `init`, and `orchestrate`. The regular autonomous loop is bounded to five iterations per execution. In `orchestrate`, the main chat reviews subgoal checkpoints and pauses the run for user decisions.
+Modes: `auto` (default), `guided`, `review`, and `init`. `orchestrate` is an alias for `auto`. Autonomous work continues as long as there is a safe next step that can make verifiable progress. The main chat coordinates subgoals when needed and pauses for decisions. There is no fixed five-round limit.
 
 ### Coordinate subgoals across chats
 
-Set `Mode:` to `orchestrate` and state whether to create Codex chats for subgoals and send them follow-ups. The mode requires Python 3.8 or later. The run can use up to 100 chats including the main chat, with up to three workers active at once. The main chat records verified results in the project memory bank.
+With `Mode: auto`, state whether to create separate Codex chats for subgoals and send them follow-ups. The main chat can also work through subgoals in sequence. The worker registry requires Python 3.8 or later. A delegated run can use up to 100 chats including the main chat, with up to three workers active at once. The main chat records verified results in the project memory bank.
 
 `status` shows open workers with their latest checkpoints. Use `status --since <cursor>` for subsequent polls and `status --full` for history. Accepted work and completed runs are archived inside MLMS. Archived workers still count toward the chat limit.
 

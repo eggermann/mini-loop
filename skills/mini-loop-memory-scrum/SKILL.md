@@ -20,13 +20,19 @@ Mode:
 
 Available modes:
 
-- `auto`: Default. Run bounded autonomous mini-loop using defaults in this file.
-- `orchestrate`: The main chat coordinates subgoals, reviews evidence, and pauses the run for user decisions. Read [Orchestration](references/orchestration.md) before starting or resuming. The five-iteration budget applies only to the regular loop; use the orchestration guards in this mode.
+- `auto`: Default. Work autonomously toward the GOAL. The main chat handles direct work and coordinates subgoals when the goal needs them.
+- `orchestrate`: Compatibility alias for `auto`. It follows the same rules and activates orchestration only for subgoals.
 - `guided`: Build plan, implement one smallest useful slice, run checks, review diff, update memory, then stop and ask for direction.
 - `review`: Review existing work, run available checks, inspect diff, update memory if useful, and do not run a broad implementation pass.
 - `init`: Resolve canonical application identity, then initialize the MLMS context only when no legacy embedded memory requires migration. Do not run implementation loop.
 
 If `Mode:` is omitted, use `auto`.
+
+### When to coordinate subgoals
+
+If the current goal can be handled directly, keep the work in the main chat. A backlog item or an old `subgoals/` directory is insufficient to start orchestration. When the current goal has a narrower, independently verifiable subgoal to start or resume, the main chat coordinates it. Read [Orchestration](references/orchestration.md) when coordinating or resuming such work. Continue an existing run by its recorded ID.
+
+Use approved delegation for suitable subgoals. Creating or messaging separate Codex chats requires the user's authorization. When delegation is unavailable or unauthorized, the main chat handles the subgoals in sequence. A chat assigned a subgoal follows the coordinator's work order through its checkpoint and hands control back.
 
 ## Trigger
 
@@ -81,8 +87,8 @@ Before reading project memory or implementation work:
 3. Verify `mlms_root` is independent Git root. If identity is ambiguous, primary worktree missing, or Git roots disagree, stop without creating state.
 4. If the resolved MLMS repository is absent, inspect `<application_root>/.mlms`. If it contains memory, run `bin/migrate-project-memory.sh <worktree_root>`; otherwise run `bin/init-project-memory.sh <worktree_root>`.
 5. Run `bin/select-context.sh <worktree_root>` to get `context_root`, `subgoal_id`, and stable `execution_id`. Never select by folder basename alone.
-6. Load shared project vision and accepted decisions, then parent GOAL, assigned subgoal, relevant handoffs/dependencies, and that execution's budget. Do not load unrelated branch execution chatter.
-7. In the regular loop, call `bin/loop-budget.sh <worktree_root> <execution-id> increment` before each iteration. Nested work keeps the inherited execution ID. In `orchestrate`, use the orchestrator's registered work assignments and checkpoint commands.
+6. Load shared project vision and accepted decisions, then parent GOAL, assigned subgoal, and relevant handoffs and dependencies.
+7. In `auto` and its alias, use the progress and stop rules below. Existing `Used` and `Maximum` entries are legacy bookkeeping. The autonomous workflow does not call `bin/loop-budget.sh` by default.
 
 Application Git owns implementation history. MLMS Git owns project intent and Scrum state. They are separate repositories; never stage files across them. Use `bin/mlms-lock.sh <worktree-root> -- <update-command>` around MLMS mutations. Reconciliation uses `bin/reconcile-subgoal.sh <worktree-root> <subgoal-id> <target-branch>`. After meaningful MLMS changes, commit only with permission and explicit paths using `bin/mlms-commit.sh <worktree-root> <message> <mlms-relative-path>...`; it creates no commit for unchanged content.
 
@@ -154,8 +160,7 @@ parent active context, and preceding sibling handoffs before starting it.
 
 ### Execution and Handoff
 
-Run the normal bounded loop inside the active child. A child may finish only
-when its acceptance criteria and relevant checks are satisfied. Then:
+For delegated workers, use the work assignment and checkpoint rules in the orchestration reference. For subgoals handled in sequence by the main chat, use the regular review cycle. A child may finish only when its acceptance criteria and relevant checks are satisfied. Then:
 
 1. Mark `subgoal.md` as `completed`.
 2. Record its result, verification, and recommended next action in `Handoff to Parent`.
@@ -163,10 +168,7 @@ when its acceptance criteria and relevant checks are satisfied. Then:
    and `sprintReview.md`.
 4. Resume the next pending sibling, or resume the parent loop.
 
-If a child is blocked, record the blocker in both child and parent contexts and
-stop; never silently bypass it. A child cannot mark the parent GOAL complete.
-
-Each Mini-Loop execution has a stable execution ID and a separate budget record at `<mlms-root>/executions/<execution-id>/activeContext.md`. Independent branch/worktree executions use distinct records; a child inherits its parent execution ID and cannot reset `Used`. Before each iteration, acquire MLMS update lock, reload latest record, increment `Used`, validate, and release lock. `max_loops` stays 5; nesting depth stays 3. At budget/depth limit, preserve contexts and record stop reason in parent and active child.
+If a child is blocked, record the blocker in both child and parent contexts. The main chat resolves it within scope or pauses when a user decision is needed. A child cannot mark the parent GOAL complete. Keep execution IDs stable and preserve context at the three-level nesting limit. Handle further work as a slice of the current subgoal when possible.
 
 ### Parent Completion Cleanup
 
@@ -193,7 +195,7 @@ Decision log keeps existing accepted decisions. Mark decisions as project-wide a
 
 ## Core Loop
 
-Always work in this bounded rhythm:
+Work in small, reviewable slices:
 
 `GOAL -> resolve app/worktree/MLMS -> read scoped context -> plan -> implement smallest slice -> run checks -> review diff -> lock/reload/update MLMS -> separately commit if permitted -> continue or stop`
 
@@ -201,7 +203,6 @@ Do not skip review, retrospective, or memory updates.
 
 ## Default Autonomous Settings
 
-- `max_loops: 5`
 - `max_subgoal_depth: 3`
 - `auto_commit: ask-first` (legacy alias for application commits)
 - `application_auto_commit: ask-first`
@@ -226,7 +227,7 @@ auto
 ## Context Read Order
 
 1. When starting or resuming, load the current goal and criteria from `projectBrief.md`, then read `memory-bank/activeContext.md` and relevant accepted decisions and handoffs. A subgoal also needs a short statement of the parent goal.
-2. Before each new slice, inspect the working tree and refresh active context, budget, and relevant decisions or handoffs that changed. Recheck shared state under the lock before writing it.
+2. Before each new slice, inspect the working tree and refresh active context and any relevant decisions or handoffs that changed. Recheck shared state under the lock before writing it.
 3. Open archived reviews or other memory files only when needed for a decision, check, or handoff.
 
 ## Loop Contract
@@ -250,17 +251,13 @@ For each iteration:
 
 ## Stop Conditions
 
-Stop when any of these is true:
+In `auto` (including its alias), continue while a safe next slice can make verifiable progress. There is no fixed round limit. After two consecutive slices without new evidence or a resolved blocker, review the plan before trying again. Continue if there is a concrete alternative within scope.
 
-- Goal is satisfied.
-- Blocked by missing info.
-- Checks fail and cannot be fixed safely.
-- Destructive action is required.
-- Large dependency is required.
-- Unrelated dirty changes exist.
-- Max loop count is reached.
+- Finish when the GOAL criteria are verified.
+- Pause if progress requires a user decision or permission, or if no safe path remains after checking alternatives. This includes missing essential information, unresolvable failed checks, or conflicting working-tree changes that prevent safe edits.
+- Honor any limit the user set for the run and any host limit. Record the current state and the next action when work pauses.
 
-In `orchestrate`, use the pause, escalation, and completion rules in the orchestration reference instead of the regular loop count and stop rules.
+When coordinating workers, follow the orchestration reference to pause dispatch and gather checkpoints before continuing.
 
 ## Project Brief
 
@@ -322,7 +319,7 @@ Store the file under `<context-root>/projectBrief.md`.
 
 `<context-root>/memory-bank/activeContext.md`
 
-The `Shared Loop Budget` section identifies the execution. Authoritative `Used` count lives at `<mlms-root>/executions/<execution-id>/activeContext.md`; child contexts inherit its ID and never reset it.
+Record the stable execution ID and, while coordinating subgoals, the orchestration run ID.
 
 ```md
 # Active Context
@@ -331,11 +328,9 @@ The `Shared Loop Budget` section identifies the execution. Authoritative `Used` 
 ## Current Loop
 Loop: 1
 Phase: Planning
-## Shared Loop Budget
+## Execution
 MLMS Root: <resolved-mlms-root>
 Execution ID: <stable-execution-id>
-Used: 0
-Maximum: 5
 ## Current Focus
 <what Codex is working on now>
 ## Assumptions
@@ -416,7 +411,7 @@ If missing, create:
 ## Codex Workflow
 Before doing implementation work:
 1. Resolve app root, branch, worktree, shared MLMS root, and active GOAL/subgoal.
-2. Read `<mlms-root>/projectBrief.md`, shared accepted decisions, assigned parent/subgoal, relevant handoffs, and execution budget.
+2. Read `<mlms-root>/projectBrief.md`, shared accepted decisions, assigned parent/subgoal, and relevant handoffs.
 3. Identify current loop phase from active execution context.
 4. Load only relevant branch/worktree execution detail; retain visibility of global accepted decisions.
 During work:
@@ -427,7 +422,7 @@ During work:
 5. Review diff before proposing commit.
 After meaningful work:
 1. Under update lock, refresh relevant `<context-root>/memory-bank/*` files from latest state.
-2. Update execution-scoped budget/context record.
+2. Update the active execution context.
 3. Update decision log without silently promoting conflicting proposals.
 4. Update sprint review after review.
 5. State next recommended action.
@@ -502,7 +497,7 @@ Append after each loop:
 
 ## Output Style
 
-Report material changes, decisions, blockers, and verified outcomes. Include checks, files, or commit status when useful for review. In orchestration mode, let MLMS checkpoints carry routine progress. Keep worker replies brief and surface user decisions or verified results from the main chat.
+Report material changes, decisions, blockers, and verified outcomes. Include checks, files, or commit status when useful for review. When coordinating workers, let MLMS checkpoints carry routine progress. Keep worker replies brief and surface user decisions or verified results from the main chat.
 
 ## Safety Rules
 

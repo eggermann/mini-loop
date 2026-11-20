@@ -5,7 +5,7 @@
 Before implementation:
 
 1. Resolve application root, branch, worktree, shared MLMS root, and active GOAL/subgoal.
-2. Read `<mlms-root>/projectBrief.md`, shared accepted decisions, assigned parent/subgoal, relevant handoffs, dependencies, and execution budget.
+2. Read `<mlms-root>/projectBrief.md`, shared accepted decisions, assigned parent/subgoal, relevant handoffs, and dependencies.
 3. Identify current phase from the active execution context. Load only relevant branch/worktree detail; global accepted decisions remain visible.
 
 During work:
@@ -20,7 +20,7 @@ During work:
 
 Do not infer nesting from MLMS existence alone. A repeated GOAL is a child only when its parent is unfinished, the goal is narrower, and completion advances the parent. Record parent GOAL, child GOAL, status, acceptance criteria, and handoff in `subgoal.md`.
 
-Sequential children resume the active child, else the lowest pending child. Parallel active siblings are allowed only with explicit, distinct application branch/worktree assignments. Select the unique assigned child for current checkout; fail on ambiguity. Child execution inherits its parent's execution ID and budget. Maximum nested depth is 3; default execution budget remains 5 iterations.
+In `auto`, the main chat coordinates subgoals only when the goal needs them. Sequential children resume the active child, else the lowest pending child. Parallel active siblings require authorized delegation and distinct application branch/worktree assignments. Select the unique assigned child for the current checkout and stop on ambiguity. Maximum nesting depth is 3. Continue while safe, verifiable progress is possible and pause when input or permission is needed.
 
 On child completion, preserve result, verification, and next action in parent progress, active context, and sprint review. A child cannot complete its parent GOAL. After parent completion, summarize first, mark unfinished generated children cancelled/superseded with reason, then remove only workflow-generated subgoal folders. Keep them when parent remains blocked or incomplete.
 
