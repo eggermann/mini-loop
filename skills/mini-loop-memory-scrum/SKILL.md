@@ -1,6 +1,6 @@
 ---
 name: mini-loop-memory-scrum
-description: Initialize a Codex-compatible memory bank from a user GOAL, create a project brief, and run a guarded Scrum/Vibe autonomous mini-loop until goal is reached or blocked.
+description: Use for a Mini-Loop GOAL, project memory, Scrum plan and review cycles, or coordinating workers on subgoals with shared checkpoints and user decisions.
 ---
 
 # Mini-Loop Memory Scrum Skill
@@ -20,12 +20,19 @@ Mode:
 
 Available modes:
 
-- `auto`: Default. Run bounded autonomous mini-loop using defaults in this file.
+- `auto`: Default. Work autonomously toward the GOAL. The coordinator handles direct work and manages subgoals when needed.
+- `orchestrate`: Compatibility alias for `auto`. It follows the same rules and activates orchestration only for subgoals.
 - `guided`: Build plan, implement one smallest useful slice, run checks, review diff, update memory, then stop and ask for direction.
 - `review`: Review existing work, run available checks, inspect diff, update memory if useful, and do not run a broad implementation pass.
-- `init`: Only initialize `.mlms/projectBrief.md`, `.mlms/AGENTS.md`, and `.mlms/memory-bank/*` in current repo. Do not run implementation loop.
+- `init`: Resolve canonical application identity, then initialize the MLMS context only when no legacy embedded memory requires migration. Do not run implementation loop.
 
 If `Mode:` is omitted, use `auto`.
+
+### When to coordinate subgoals
+
+If the current goal can be handled directly, the coordinator keeps the work. A backlog item or an old `subgoals/` directory is insufficient to start orchestration. When the current goal has a narrower, independently verifiable subgoal to start or resume, the coordinator manages it. Read [Orchestration](references/orchestration.md) when coordinating or resuming such work. Continue an existing run by its recorded ID.
+
+Prefer parallel execution for independent, ready subgoals when delegation is authorized and their branch/worktree assignments are distinct. The execution environment determines how each worker starts. Start ready workers up to the available slots before waiting. Run dependent work in order. Creating or messaging separate Codex chats requires the user's authorization. When delegation or safe isolation is unavailable, the coordinator handles the subgoals in sequence. A worker follows its assignment through its checkpoint and hands control back.
 
 ## Trigger
 
@@ -55,27 +62,41 @@ If user already provided a clear goal, do not ask again.
 
 At start of project, inspect repository.
 
-If missing, create:
+If the resolved MLMS repository is missing and no embedded legacy memory exists, initialize these at `<mlms-root>`:
 
-- `.mlms/projectBrief.md`
-- `.mlms/AGENTS.md`
-- `.mlms/memory-bank/`
-- `.mlms/memory-bank/activeContext.md`
-- `.mlms/memory-bank/productContext.md`
-- `.mlms/memory-bank/progress.md`
-- `.mlms/memory-bank/decisionLog.md`
-- `.mlms/memory-bank/systemPatterns.md`
-- `.mlms/memory-bank/sprintReview.md`
+- `projectBrief.md`
+- `AGENTS.md`
+- `memory-bank/`
+- `memory-bank/activeContext.md`
+- `memory-bank/productContext.md`
+- `memory-bank/progress.md`
+- `memory-bank/decisionLog.md`
+- `memory-bank/systemPatterns.md`
+- `memory-bank/sprintReview.md`
 
 Do not overwrite substantial existing files without preserving content.
 
-In the rules below, **context root** means `.mlms` for the main goal and the
-active `.mlms/subgoals/<NNN-slug>` directory for a child goal. Paths described
-as `<context-root>/...` must always resolve against that active context.
+## Canonical Repository and Context Resolution
 
-## Nested Mini-Loops and Linear Subgoals
+Installed runtime helpers live in `bin/`; templates live in `bin/templates/`.
 
-Do not infer nesting from the existence of `.mlms` alone. Treat a repeated
+Before reading project memory or implementation work:
+
+1. Run installed `bin/resolve-project.sh` against current checkout.
+2. Record `application_root`, current `branch` (or `DETACHED`), `worktree_root`, `git_common_dir`, and `mlms_root`.
+3. Verify `mlms_root` is independent Git root. If identity is ambiguous, primary worktree missing, or Git roots disagree, stop without creating state.
+4. If the resolved MLMS repository is absent, inspect `<application_root>/.mlms`. If it contains memory, run `bin/migrate-project-memory.sh <worktree_root>`; otherwise run `bin/init-project-memory.sh <worktree_root>`.
+5. Run `bin/select-context.sh <worktree_root>` to get `context_root`, `subgoal_id`, and stable `execution_id`. Never select by folder basename alone.
+6. Load shared project vision and accepted decisions, then parent GOAL, assigned subgoal, and relevant handoffs and dependencies.
+7. In `auto` and its alias, use the progress and stop rules below. Existing `Used` and `Maximum` entries are legacy bookkeeping. The autonomous workflow does not call `bin/loop-budget.sh` by default.
+
+Application Git owns implementation history. MLMS Git owns project intent and Scrum state. They are separate repositories; never stage files across them. Use `bin/mlms-lock.sh <worktree-root> -- <update-command>` around MLMS mutations. Reconciliation uses `bin/reconcile-subgoal.sh <worktree-root> <subgoal-id> <target-branch>`. After meaningful MLMS changes, commit only with permission and explicit paths using `bin/mlms-commit.sh <worktree-root> <message> <mlms-relative-path>...`; it creates no commit for unchanged content.
+
+The **MLMS root** is the absolute path returned by the resolver. An explicit `mlms.root` in the application's local Git configuration takes precedence over the default sibling `.mlms-<canonical-repository-folder-name>`. Linked worktrees share that configuration. Separate clones can opt in to the same physical location. Keep the path stable while a run is active and preserve the existing memory repository before switching locations. The **context root** is that MLMS root for project-level work or its assigned `subgoals/<NNN-slug>` for a child.
+
+## Nested Mini-Loops and Subgoals
+
+Do not infer nesting from the existence of an MLMS repository alone. Treat a repeated
 invocation as a **subgoal** only when all of these are true:
 
 1. The current context records a parent GOAL that is not completed, cancelled,
@@ -87,17 +108,16 @@ Otherwise, resume the existing goal, replace it as explicitly requested, or
 ask whether the new GOAL is a replacement or child when intent is ambiguous.
 The parent GOAL remains the authority for scope and completion.
 
-Use nested loops only for work that can be completed independently and then
-unblocks the parent in a linear order. Do not create sibling subgoals that need
-to be worked on in parallel, and do not create a subgoal merely to restate a
-normal backlog item.
+Sibling subgoals may run in parallel only when each is intentionally assigned to an independent application branch/worktree. Record assignment in each existing `subgoal.md`; keep parent GOAL and accepted global decisions shared. An execution must select the unique active subgoal matching its current branch/worktree. If assignment is ambiguous or multiple subgoals match, stop and report conflict. Unassigned active subgoals do not become the default for every worktree.
+
+Keep nested depth capped at 3. A child may create deeper children only within its own assigned work context. Preserve sibling creation order and linear activation for unassigned work.
 
 ### Subgoal Layout
 
-Create a transient child context under the current memory root:
+Create child context under the active MLMS context root:
 
 ```text
-.mlms/
+<mlms-root>/
   subgoals/
     001-<short-slug>/
       subgoal.md
@@ -106,12 +126,7 @@ Create a transient child context under the current memory root:
       memory-bank/
 ```
 
-For deeper nesting, use the active child context as the current memory root,
-so its children live in `.../subgoals/<id>/subgoals/`. Number siblings in
-creation order with zero-padded numbers. If one child has status `active`,
-resume it first. Otherwise activate only the lowest-numbered `pending` child.
-All later siblings remain pending until earlier work is completed or explicitly
-skipped.
+For deeper nesting, use active child context as current root, so children live in `.../subgoals/<id>/subgoals/`. Number siblings in creation order with zero-padded numbers. For sequential work, resume an active child first or start the lowest pending child whose prerequisites are met.
 
 `subgoal.md` must contain:
 
@@ -125,6 +140,13 @@ skipped.
 <how completion unblocks parent>
 ## Status
 pending | active | completed | skipped | cancelled | superseded
+## Git Assignment
+- Application repository: ...
+- Branch: ...
+- Worktree: ...
+- Base / target branch: ...
+- Relevant commits: ...
+- Merge status: not merged | merged | unknown
 ## Acceptance Criteria
 - ...
 ## Handoff to Parent
@@ -138,8 +160,7 @@ parent active context, and preceding sibling handoffs before starting it.
 
 ### Execution and Handoff
 
-Run the normal bounded loop inside the active child. A child may finish only
-when its acceptance criteria and relevant checks are satisfied. Then:
+For delegated workers, use the work assignment and checkpoint rules in the orchestration reference. For subgoals handled in sequence by the coordinator, use the regular review cycle. A child may finish only when its acceptance criteria and relevant checks are satisfied. Then:
 
 1. Mark `subgoal.md` as `completed`.
 2. Record its result, verification, and recommended next action in `Handoff to Parent`.
@@ -147,19 +168,11 @@ when its acceptance criteria and relevant checks are satisfied. Then:
    and `sprintReview.md`.
 4. Resume the next pending sibling, or resume the parent loop.
 
-If a child is blocked, record the blocker in both child and parent contexts and
-stop; never silently bypass it. A child cannot mark the parent GOAL complete.
-
-Nested invocations share the root loop budget; creating a child never resets
-`max_loops`. Before every parent or child iteration, increment `Used` in the
-root `.mlms/memory-bank/activeContext.md` Shared Loop Budget. Never decrement
-or replace this counter from a child context. Default maximum nesting depth is
-3. At budget or depth limit, preserve all contexts, record the stop reason in
-parent and active child, and stop.
+If a child is blocked, record the blocker in both child and parent contexts. The coordinator resolves it within scope or pauses when a user decision is needed. A child cannot mark the parent GOAL complete. Keep execution IDs stable and preserve context at the three-level nesting limit. Handle further work as a slice of the current subgoal when possible.
 
 ### Parent Completion Cleanup
 
-Subgoal folders are transient execution context. When the parent GOAL is
+Subgoal folders are execution context. When the parent GOAL is
 completed, first retain a concise completion/handoff summary in the parent
 memory bank. Before cleanup, mark every unfinished child as `cancelled` or
 `superseded`, record why it is no longer required, and include that disposition
@@ -168,22 +181,32 @@ directory.
 
 This lifecycle cleanup is the sole exception to `auto_delete: never`. It is
 allowed only for subgoal folders generated by this workflow; never remove
-user-created files or the parent `.mlms` memory bank. If the parent stops
-blocked or incomplete, keep all subgoal folders intact for resumption.
+user-created files or the parent MLMS memory bank. If parent stops blocked or
+incomplete, keep all subgoal folders intact for resumption.
+
+
+## Git Evidence and Decision Scope
+
+Use Git as evidence for implementation association and merge state. Record relevant app repository, branch, worktree, commits, base/target branch, review, and merge evidence on the existing subgoal. Merge status is `merged`, `not merged`, or `unknown`. Use ancestry for normal merges. Branch deletion is never proof. A squash merge without reliable local evidence remains `unknown`.
+
+At loop start, before planning after a successful implementation commit, and during review, run `bin/reconcile-subgoal.sh <worktree-root> <subgoal-id> <target-branch>` when local evidence is available. It updates existing subgoal evidence, progress, and sprint review idempotently under lock. Preserve handoff and acceptance criteria. Reconciliation leaves subgoal status active: evaluate criteria and verification yourself, then mark completed only if all conditions are met. Reevaluate parent GOAL; required remaining child work keeps it open. Merge never completes a subgoal or parent GOAL by itself.
+
+Decision log keeps existing accepted decisions. Mark decisions as project-wide accepted, goal/subgoal scoped, branch proposal, or superseded. Preserve conflicting proposals and expose conflict; do not promote either to project-wide accepted until explicitly resolved. Accepted global decisions remain visible to every execution.
 
 ## Core Loop
 
-Always work in this bounded rhythm:
+Work in small, reviewable slices:
 
-`GOAL -> read context -> build plan -> implement smallest slice -> run tests/build/lint/typecheck -> review diff -> update memory bank -> commit if green and permitted -> continue or stop`
+`GOAL -> resolve app/worktree/MLMS -> read scoped context -> plan -> implement smallest slice -> run checks -> review diff -> lock/reload/update MLMS -> separately commit if permitted -> continue or stop`
 
 Do not skip review, retrospective, or memory updates.
 
 ## Default Autonomous Settings
 
-- `max_loops: 5`
 - `max_subgoal_depth: 3`
-- `auto_commit: ask-first`
+- `auto_commit: ask-first` (legacy alias for application commits)
+- `application_auto_commit: ask-first`
+- `mlms_auto_commit: ask-first` (separate permission/policy)
 - `auto_push: never`
 - `auto_merge: never`
 - `auto_delete: never`
@@ -203,19 +226,15 @@ auto
 
 ## Context Read Order
 
-Before each loop:
-
-1. Read the current context's `projectBrief.md`.
-2. Read all files in the current context's `memory-bank/`.
-3. Inspect dirty working tree state.
-4. Identify current loop phase from the current context's `memory-bank/activeContext.md`.
-5. For a subgoal, also read its parent brief/active context and preceding sibling handoffs.
+1. When starting or resuming, load the current goal and criteria from `projectBrief.md`, then read `memory-bank/activeContext.md` and relevant accepted decisions and handoffs. A subgoal also needs a short statement of the parent goal.
+2. Before each new slice, inspect the working tree and refresh active context and any relevant decisions or handoffs that changed. Recheck shared state under the lock before writing it.
+3. Open archived reviews or other memory files only when needed for a decision, check, or handoff.
 
 ## Loop Contract
 
 For each iteration:
 
-1. Restate current GOAL.
+1. Confirm the current goal and criteria from context.
 2. Select smallest next backlog item.
 3. Define acceptance criteria.
 4. Implement only that slice.
@@ -226,21 +245,19 @@ For each iteration:
    - build
    - manual verification when no automated checks exist
 6. Review diff against GOAL and acceptance criteria.
-7. Update memory bank files.
-8. Commit only if checks are green, review is coherent, memory is updated, and user permission exists.
+7. Acquire MLMS update lock; reload latest state; apply only scoped changes; validate; release lock.
+8. Commit application and MLMS repositories separately, only when each policy permits and checks/review are green. Never push or merge automatically.
 9. Continue to next slice or stop.
 
 ## Stop Conditions
 
-Stop when any of these is true:
+In `auto` (including its alias), continue while a safe next slice can make verifiable progress. There is no fixed round limit. After two consecutive slices without new evidence or a resolved blocker, review the plan before trying again. Continue if there is a concrete alternative within scope.
 
-- Goal is satisfied.
-- Blocked by missing info.
-- Checks fail and cannot be fixed safely.
-- Destructive action is required.
-- Large dependency is required.
-- Unrelated dirty changes exist.
-- Max loop count is reached.
+- Finish when the GOAL criteria are verified.
+- Pause if progress requires a user decision or permission, or if no safe path remains after checking alternatives. This includes missing essential information, unresolvable failed checks, or conflicting working-tree changes that prevent safe edits.
+- Honor any limit the user set for the run and any host limit. Record the current state and the next action when work pauses.
+
+When coordinating workers, follow the orchestration reference to pause dispatch and gather checkpoints before continuing.
 
 ## Project Brief
 
@@ -302,6 +319,8 @@ Store the file under `<context-root>/projectBrief.md`.
 
 `<context-root>/memory-bank/activeContext.md`
 
+Record the stable execution ID and, while coordinating subgoals, the orchestration run ID.
+
 ```md
 # Active Context
 ## Current Goal
@@ -309,10 +328,9 @@ Store the file under `<context-root>/projectBrief.md`.
 ## Current Loop
 Loop: 1
 Phase: Planning
-## Shared Loop Budget
-Root Context: .mlms
-Used: 0
-Maximum: 5
+## Execution
+MLMS Root: <resolved-mlms-root>
+Execution ID: <stable-execution-id>
 ## Current Focus
 <what Codex is working on now>
 ## Assumptions
@@ -392,10 +410,10 @@ If missing, create:
 # AGENTS.md
 ## Codex Workflow
 Before doing implementation work:
-1. Resolve the active context root: `.mlms` for main goal or active child directory.
-2. Read `<context-root>/projectBrief.md`.
-3. Read all files in `<context-root>/memory-bank/`.
-4. Identify current loop phase from `<context-root>/memory-bank/activeContext.md`.
+1. Resolve app root, branch, worktree, shared MLMS root, and active GOAL/subgoal.
+2. Read `<mlms-root>/projectBrief.md`, shared accepted decisions, assigned parent/subgoal, and relevant handoffs.
+3. Identify current loop phase from active execution context.
+4. Load only relevant branch/worktree execution detail; retain visibility of global accepted decisions.
 During work:
 1. Keep changes small.
 2. Prefer a vertical slice over broad unfinished edits.
@@ -403,10 +421,10 @@ During work:
 4. Run available tests/checks when possible.
 5. Review diff before proposing commit.
 After meaningful work:
-1. Update `<context-root>/memory-bank/activeContext.md`.
-2. Update `<context-root>/memory-bank/progress.md`.
-3. Update `<context-root>/memory-bank/decisionLog.md` if a decision was made.
-4. Update `<context-root>/memory-bank/sprintReview.md` after review.
+1. Under update lock, refresh relevant `<context-root>/memory-bank/*` files from latest state.
+2. Update the active execution context.
+3. Update decision log without silently promoting conflicting proposals.
+4. Update sprint review after review.
 5. State next recommended action.
 ```
 
@@ -425,7 +443,7 @@ Before committing, perform:
 - Is implementation minimal?
 - Is there avoidable complexity?
 ### Memory
-- Was `<context-root>/memory-bank/activeContext.md` updated?
+- Was `<mlms-root>/executions/<execution-id>/activeContext.md` updated under lock?
 - Was `<context-root>/memory-bank/progress.md` updated?
 - Was `<context-root>/memory-bank/decisionLog.md` updated if needed?
 - Was `<context-root>/memory-bank/sprintReview.md` updated?
@@ -479,16 +497,7 @@ Append after each loop:
 
 ## Output Style
 
-Always show:
-
-1. What was initialized or changed.
-2. Current loop phase.
-3. Checks run.
-4. Files created or updated.
-5. Commit status.
-6. Next action.
-
-Be concise and operational.
+Report material changes, decisions, blockers, and verified outcomes. Include checks, files, or commit status when useful for review. When coordinating workers, let MLMS checkpoints carry routine progress. Keep worker replies brief. The coordinator surfaces user decisions and verified results.
 
 ## Safety Rules
 

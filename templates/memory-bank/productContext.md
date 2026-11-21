@@ -2,20 +2,20 @@
 
 ## Purpose
 
-<TODO>
+<TODO: project purpose>
 
 ## Users
 
-<TODO>
+<TODO: target users>
 
 ## Core Value
 
-<TODO>
+<TODO: why this matters>
 
 ## Current Scope
 
-<TODO>
+<TODO: current scope>
 
 ## Non-Goals
 
-<TODO>
+<TODO: what not to build yet>
