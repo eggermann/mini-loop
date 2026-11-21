@@ -214,6 +214,7 @@ def transition(state, args):
 
     if command == "complete":
         require(state["phase"] == "running", "resolve the pause first")
+        require(args.cursor == state.get("revision", 0), "run changed since completion was reviewed")
         require(all(record["status"] in FINISHED for record in workers.values()),
                 "settle all workers before completing the run")
         if any(record["status"] == "cancelled" for record in workers.values()):
@@ -293,6 +294,7 @@ def parse(argv):
     resume.add_argument("decision", type=nonempty)
     complete = commands.add_parser("complete", help="close a settled run and record its outcome")
     complete.add_argument("result", type=nonempty)
+    complete.add_argument("--cursor", type=int, required=True, help="cursor of the reviewed run snapshot")
     complete.add_argument("--evidence", type=nonempty, required=True, help="coordinator's evidence for the outcome")
     complete.add_argument("--remaining", type=nonempty)
     for name in ("reserve", "bind", "begin", "guard", "report", "interrupt",
