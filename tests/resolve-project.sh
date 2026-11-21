@@ -319,6 +319,34 @@ make_subgoal 004-squash feature/squash "$SQUASH_COMMIT"
 squash_result=$("$SCRIPT_DIR/reconcile-subgoal.sh" "$RECON_APP" 004-squash main)
 case "$squash_result" in *"merge_status=unknown"*) ;; *) fail "squash state falsely claimed certain: $squash_result" ;; esac
 
+# Runtime labels share the same worker lifecycle and binding rules.
+orchestrate() {
+  python3 "$SCRIPT_DIR/orchestrate.py" "$APP_ROOT" runtime-labels "$@"
+}
+orchestrate init "Parent goal" >/dev/null
+orchestrate reserve process-worker "Run a CLI slice" >/dev/null
+if orchestrate bind process-worker ' ' session-1 >/dev/null 2>&1; then
+  fail "blank runtime label was accepted"
+fi
+orchestrate bind process-worker cli session-1 --host runner-a >/dev/null
+orchestrate reserve chat-worker "Run a Codex chat slice" >/dev/null
+if orchestrate bind chat-worker cli session-1 --host runner-a >/dev/null 2>&1; then
+  fail "duplicate CLI runtime binding was accepted"
+fi
+orchestrate bind chat-worker chat session-1 --host runner-a >/dev/null
+orchestrate begin process-worker 1 >/dev/null
+orchestrate guard process-worker 1 >/dev/null
+printf '%s\n' '{"summary":"Slice complete","evidence":"CLI output verified","progress":"Done","next":"Review","blocker":""}' |
+  orchestrate report process-worker 1 candidate >/dev/null
+orchestrate accept process-worker 1 "Reviewed CLI output" >/dev/null
+orchestrate status --worker process-worker | python3 -c '
+import json, sys
+worker = json.load(sys.stdin)
+binding = (worker["backend"], worker["host"], worker["handle"])
+sys.exit(binding != ("cli", "runner-a", "session-1"))
+' ||
+  fail "archived CLI worker lost its runtime binding"
+
 # Generation and both installer paths package every runtime dependency and template.
 GENERATED="$TMP_ROOT/generated package"
 "$SCRIPT_DIR/create.sh" "$GENERATED" >/dev/null

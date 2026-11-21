@@ -77,16 +77,25 @@ Mode:
 auto
 ```
 
-Modes: `auto` (default), `guided`, `review`, and `init`. `orchestrate` is an alias for `auto`. Autonomous work continues as long as there is a safe next step that can make verifiable progress. The main chat coordinates subgoals when needed and pauses for decisions. There is no fixed five-round limit.
+Modes: `auto` (default), `guided`, `review`, and `init`. `orchestrate` is an alias for `auto`. Autonomous work continues as long as there is a safe next step that can make verifiable progress. The coordinator manages subgoals when needed and pauses for decisions. There is no fixed five-round limit.
 
-### Coordinate subgoals across chats
+### Coordinate subgoals across workers
 
-With `Mode: auto`, independent subgoals run in parallel when delegation and isolated worktrees are available. Dependent work runs in order. Explicitly authorize separate Codex chats and follow-ups if you want them. The worker registry requires Python 3.8 or later. A delegated run can use up to 100 chats including the main chat, with up to three workers active at once. The main chat records verified results in the project memory bank.
+Mini-Loop coordinates work, not chats. A subgoal describes the work, a worker ID identifies its assigned participant within the run, and a runtime handle identifies where the worker runs. The execution environment starts workers through an authorized mechanism such as a Codex chat, subagent, CLI process, local agent, or external runtime. Creating or messaging a separate Codex chat still requires explicit user authorization. Workers need access to their assigned checkout and the same MLMS root.
 
-`status` shows open workers with their latest checkpoints. Use `status --since <cursor>` for subsequent polls and `status --full` for history. Accepted work and completed runs are archived inside MLMS. Archived workers still count toward the chat limit.
+With `Mode: auto`, independent subgoals run in parallel when delegation and isolated worktrees are available. Dependent work runs in order. The worker registry requires Python 3.8 or later. Each run counts one coordinator and up to 99 worker reservations, with up to three active worker slices at once. The coordinator records verified results in the project memory bank.
 
-A pause blocks new work through the coordinator and asks workers to checkpoint. Waiting for a checkpoint or manually interrupting a chat may be necessary when its backend cannot stop a running turn directly. See the [orchestration workflow](skills/mini-loop-memory-scrum/references/orchestration.md).
+`status` shows open workers with their latest checkpoints. Use `status --since <cursor>` for subsequent polls and `status --full` for history. Accepted work and completed runs are archived inside MLMS. Archived workers still count toward the run limit.
+
+A pause blocks new work and asks active workers to checkpoint. If a checkpoint is missing, verify the runtime has stopped the worker before recording an interruption. See the [orchestration workflow](skills/mini-loop-memory-scrum/references/orchestration.md).
 
 The workflow supports explicit branch/worktree subgoal assignments. Agents load shared project vision and accepted decisions plus only their assigned subgoal context. `select-context.sh` selects work; `reconcile-subgoal.sh` records merge evidence under lock. Git ancestry can prove a normal merge; branch deletion is not proof and uncertain squash state remains `unknown`. Reconciliation preserves acceptance criteria and leaves completion decisions to the Mini-Loop review.
 
 Application and MLMS commits are separate and require permission under the configured policy. No automatic push or merge occurs. A Git merge alone never completes a parent GOAL.
+
+## Run checks
+
+```sh
+sh tests/resolve-project.sh
+python3 tests/test_orchestrate.py
+```

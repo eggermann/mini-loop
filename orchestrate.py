@@ -3,16 +3,19 @@
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 
-MAX_CHATS = 100  # Includes the coordinator. Reservations count for the whole run.
+MAX_PARTICIPANTS = 100  # One coordinator plus all worker reservations for the run.
 PARALLEL_WORKERS = 3
+LOCK_RETRY_DELAYS = (0.1, 0.2)
 SCRIPTS = Path(__file__).resolve().parent
 FINISHED = {"accepted", "cancelled"}
 
@@ -102,15 +105,17 @@ def archive_terminal_work(path, state):
     archive = path.parent / "archive"
     save(archive / "run.json", state)
     lines = ["# " + state["run"], "", "Goal: " + state["goal"], "",
-             "Result: " + state["result"], "",
-             "Open items: " + state.get("remaining", "See result."), "", "## Decisions"]
+             "Result: " + state["result"], ""]
+    if "verification" in state:
+        lines.extend(["Verification: " + state["verification"], ""])
+    lines.extend(["Open items: " + state.get("remaining", "See result."), "", "## Decisions"])
     for decision in state["decisions"]:
         lines.append(f'- {decision["question"]} → {decision["answer"]}')
     if not state["decisions"]:
         lines.append("- None recorded.")
     write_atomic(archive / "summary.md", "\n".join(lines) + "\n")
-    # Keep the run ID, cursor and chat count available without loading its archive.
-    keep = ("run", "goal", "phase", "epoch", "revision", "result")
+    # Keep the run ID, cursor and participant count available without loading its archive.
+    keep = ("run", "goal", "phase", "epoch", "revision", "result", "verification")
     return {**{key: state[key] for key in keep if key in state}, "archived": True,
             "chats_counted": 1 + len(state["workers"])}
 
@@ -118,7 +123,8 @@ def archive_terminal_work(path, state):
 def status_view(path, state, args):
     revision = state.get("revision", 0)
     workers = state.get("workers", {})
-    counts = {"chat_limit": MAX_CHATS, "parallel_workers": PARALLEL_WORKERS,
+    # Keep the existing count keys for status readers and archived runs.
+    counts = {"chat_limit": MAX_PARTICIPANTS, "parallel_workers": PARALLEL_WORKERS,
               "chats_counted": state.get("chats_counted", 1 + len(workers))}
     if args.full or args.worker:
         if state.get("archived"):
@@ -139,7 +145,7 @@ def status_view(path, state, args):
             workers = read_state(path.parent / "archive" / "run.json")["workers"]
     result = {**counts, "run": state["run"], "phase": state["phase"],
               "epoch": state["epoch"], "cursor": revision, "workers": {}}
-    for field in ("question", "result"):
+    for field in ("question", "result", "verification"):
         if field in state:
             result[field] = state[field]
     if state["phase"] == "complete":
@@ -150,7 +156,7 @@ def status_view(path, state, args):
                 continue
         elif worker.get("revision", 0) <= args.since:
             continue
-        fields = ("goal", "status", "updated", "backend", "host", "handle", "interruption")
+        fields = ("goal", "status", "ticket", "updated", "backend", "host", "handle", "interruption")
         row = {field: worker[field] for field in fields if field in worker}
         if worker.get("checkpoints"):
             row["checkpoint"] = worker["checkpoints"][-1]
@@ -180,7 +186,7 @@ def transition(state, args):
     if command == "reserve":
         require(state["phase"] == "running", "dispatch paused")
         require(args.worker not in workers, "worker already reserved")
-        require(1 + len(workers) < MAX_CHATS, "chat limit reached for this run")
+        require(1 + len(workers) < MAX_PARTICIPANTS, "participant limit reached for this run")
         workers[args.worker] = {"goal": args.goal, "status": "reserved",
                                 "updated": timestamp(), "ticket": 0}
         return workers[args.worker]
@@ -194,7 +200,7 @@ def transition(state, args):
     if command == "resume":
         require(state["phase"] == "paused", "run is not paused")
         require(not running(state) and not any(w["status"] == "reserved" for w in workers.values()),
-                "wait for running workers and pending chat creation to settle")
+                "wait for running workers and pending worker setup to settle")
         state["decisions"].append({"question": state.pop("question"),
                                    "paused_at": state.pop("paused_at"),
                                    "answer": args.decision, "at": timestamp()})
@@ -205,17 +211,20 @@ def transition(state, args):
         require(state["phase"] == "running", "resolve the pause first")
         require(all(record["status"] in FINISHED for record in workers.values()),
                 "settle all workers before completing the run")
-        state.update(phase="complete", result=args.result, remaining=args.remaining)
+        if any(record["status"] == "cancelled" for record in workers.values()):
+            require(args.remaining is not None, "review cancelled work and explicitly record remaining items")
+        state.update(phase="complete", result=args.result, verification=args.evidence,
+                     remaining=args.remaining or "None recorded.")
         return {"phase": state["phase"]}
 
     require(args.worker in workers, "unknown worker")
     worker = workers[args.worker]
     status = worker["status"]
     if command == "bind":
-        require(status == "reserved", "worker is not awaiting a chat")
+        require(status == "reserved", "worker is not awaiting a runtime binding")
         identity = (args.backend, args.host, args.handle)
         require(all((record.get("backend"), record.get("host"), record.get("handle")) != identity
-                    for record in workers.values()), "chat already bound")
+                    for record in workers.values()), "runtime session already bound")
         worker.update(backend=args.backend, host=args.host, handle=args.handle, status="ready")
     elif command == "begin":
         require(state["phase"] == "running" and args.epoch == state["epoch"],
@@ -239,15 +248,16 @@ def transition(state, args):
         worker.setdefault("checkpoints", []).append(entry)
         worker["status"] = args.outcome
     elif command == "interrupt":
-        require(status == "running", "worker has no active slice")
+        require(status == "running" and worker["ticket"] == args.ticket,
+                "worker has no matching active slice")
         worker.update(status="interrupted", interruption=args.evidence)
     elif command == "accept":
-        require(state["phase"] == "running" and status == "candidate",
-                "a completion candidate can only be accepted while running")
+        require(state["phase"] == "running" and status == "candidate" and worker["ticket"] == args.ticket,
+                "accept needs the current candidate ticket and an unpaused run")
         worker.update(status="accepted", review=args.evidence)
     elif command == "rework":
-        require(state["phase"] == "running" and status == "candidate",
-                "only a completion candidate can be sent back for rework")
+        require(state["phase"] == "running" and status == "candidate" and worker["ticket"] == args.ticket,
+                "rework needs the current candidate ticket and an unpaused run")
         worker.update(status="idle", review=args.evidence)
     elif command == "cancel":
         require(status not in FINISHED | {"running"}, "settle active work before cancelling")
@@ -272,32 +282,47 @@ def parse(argv):
     commands.add_parser("resume").add_argument("decision", type=nonempty)
     complete = commands.add_parser("complete")
     complete.add_argument("result", type=nonempty)
-    complete.add_argument("--remaining", type=nonempty, default="None recorded.")
+    complete.add_argument("--evidence", type=nonempty, required=True)
+    complete.add_argument("--remaining", type=nonempty)
     for name in ("reserve", "bind", "begin", "guard", "report", "interrupt",
                  "accept", "rework", "cancel"):
         commands.add_parser(name).add_argument("worker", type=identifier)
     commands.choices["reserve"].add_argument("goal", type=nonempty)
     bind = commands.choices["bind"]
-    bind.add_argument("backend", choices=("chat", "subagent"))
+    bind.add_argument("backend", type=nonempty, help="runtime label, such as chat, subagent, or cli")
     bind.add_argument("handle", type=nonempty)
     bind.add_argument("--host", default="local")
     commands.choices["begin"].add_argument("epoch", type=int)
-    commands.choices["guard"].add_argument("ticket", type=int)
-    commands.choices["report"].add_argument("ticket", type=int)
+    for name in ("guard", "report", "interrupt", "accept", "rework"):
+        commands.choices[name].add_argument("ticket", type=int)
     commands.choices["report"].add_argument("outcome", choices=("idle", "blocked", "candidate"))
     for name in ("interrupt", "accept", "rework", "cancel"):
         commands.choices[name].add_argument("evidence", type=nonempty)
     return parser.parse_args(argv)
 
 
+def run_with_lock(args, argv):
+    # Buffer and validate a report before acquiring the shared lock.
+    payload = json.dumps(read_checkpoint()) if args.command == "report" else None
+    command = [str(SCRIPTS / "mlms-lock.sh"), args.checkout, "--", sys.executable,
+               str(Path(__file__).resolve()), "--locked", *argv]
+    for delay in (*LOCK_RETRY_DELAYS, None):
+        result = subprocess.run(command, input=payload, text=True, stderr=subprocess.PIPE)
+        if result.returncode != 75 or delay is None:
+            sys.stderr.write(result.stderr)
+            return result.returncode
+        time.sleep(delay)
+
+
 def main(argv):
     under_lock = bool(argv and argv[0] == "--locked")
     args = parse(argv[1:] if under_lock else argv)
-    path = memory_path(args.checkout, args.run)
     read_only = args.command in {"status", "guard"}
+    if under_lock:
+        require(os.environ.get("MLMS_LOCKED_ROOT"), "internal update requires the MLMS lock")
+    path = memory_path(args.checkout, args.run)
     if not under_lock and not read_only:
-        return subprocess.call([str(SCRIPTS / "mlms-lock.sh"), args.checkout, "--",
-                                sys.executable, str(Path(__file__).resolve()), "--locked", *argv])
+        return run_with_lock(args, argv)
 
     if args.command == "init":
         require(not path.exists(), "run already exists; resume it via status")

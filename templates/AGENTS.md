@@ -20,7 +20,7 @@ During work:
 
 Do not infer nesting from MLMS existence alone. A repeated GOAL is a child only when its parent is unfinished, the goal is narrower, and completion advances the parent. Record parent GOAL, child GOAL, status, acceptance criteria, and handoff in `subgoal.md`.
 
-In `auto`, the main chat coordinates subgoals only when the goal needs them. Prefer parallel work for independent, ready siblings with authorized delegation and distinct application branch/worktree assignments. For sequential work, resume the active child or start the lowest pending child whose prerequisites are met. Select the unique assigned child for the current checkout and stop on ambiguity. Maximum nesting depth is 3. Continue while safe, verifiable progress is possible and pause when input or permission is needed.
+In `auto`, the coordinator manages subgoals only when the goal needs them. Prefer parallel work for independent, ready siblings with authorized delegation and distinct application branch/worktree assignments. Use the execution environment's authorized way to start workers. For sequential work, resume the active child or start the lowest pending child whose prerequisites are met. Select the unique assigned child for the current checkout and stop on ambiguity. Maximum nesting depth is 3. Continue while safe, verifiable progress is possible and pause when input or permission is needed.
 
 On child completion, preserve result, verification, and next action in parent progress, active context, and sprint review. A child cannot complete its parent GOAL. After parent completion, summarize first, mark unfinished generated children cancelled/superseded with reason, then remove only workflow-generated subgoal folders. Keep them when parent remains blocked or incomplete.
 

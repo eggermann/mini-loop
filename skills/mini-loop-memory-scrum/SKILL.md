@@ -1,6 +1,6 @@
 ---
 name: mini-loop-memory-scrum
-description: Use for a Mini-Loop GOAL, project memory, Scrum plan and review cycles, or coordinating Codex chats on subgoals with shared checkpoints and user decisions.
+description: Use for a Mini-Loop GOAL, project memory, Scrum plan and review cycles, or coordinating workers on subgoals with shared checkpoints and user decisions.
 ---
 
 # Mini-Loop Memory Scrum Skill
@@ -20,7 +20,7 @@ Mode:
 
 Available modes:
 
-- `auto`: Default. Work autonomously toward the GOAL. The main chat handles direct work and coordinates subgoals when the goal needs them.
+- `auto`: Default. Work autonomously toward the GOAL. The coordinator handles direct work and manages subgoals when needed.
 - `orchestrate`: Compatibility alias for `auto`. It follows the same rules and activates orchestration only for subgoals.
 - `guided`: Build plan, implement one smallest useful slice, run checks, review diff, update memory, then stop and ask for direction.
 - `review`: Review existing work, run available checks, inspect diff, update memory if useful, and do not run a broad implementation pass.
@@ -30,9 +30,9 @@ If `Mode:` is omitted, use `auto`.
 
 ### When to coordinate subgoals
 
-If the current goal can be handled directly, keep the work in the main chat. A backlog item or an old `subgoals/` directory is insufficient to start orchestration. When the current goal has a narrower, independently verifiable subgoal to start or resume, the main chat coordinates it. Read [Orchestration](references/orchestration.md) when coordinating or resuming such work. Continue an existing run by its recorded ID.
+If the current goal can be handled directly, the coordinator keeps the work. A backlog item or an old `subgoals/` directory is insufficient to start orchestration. When the current goal has a narrower, independently verifiable subgoal to start or resume, the coordinator manages it. Read [Orchestration](references/orchestration.md) when coordinating or resuming such work. Continue an existing run by its recorded ID.
 
-Prefer parallel execution for independent, ready subgoals when delegation is authorized and their branch/worktree assignments are distinct. Start ready workers up to the available slots before waiting. Run dependent work in order. Creating or messaging separate Codex chats requires the user's authorization. When delegation or safe isolation is unavailable, the main chat handles the subgoals in sequence. A worker follows its assignment through its checkpoint and hands control back.
+Prefer parallel execution for independent, ready subgoals when delegation is authorized and their branch/worktree assignments are distinct. The execution environment determines how each worker starts. Start ready workers up to the available slots before waiting. Run dependent work in order. Creating or messaging separate Codex chats requires the user's authorization. When delegation or safe isolation is unavailable, the coordinator handles the subgoals in sequence. A worker follows its assignment through its checkpoint and hands control back.
 
 ## Trigger
 
@@ -160,7 +160,7 @@ parent active context, and preceding sibling handoffs before starting it.
 
 ### Execution and Handoff
 
-For delegated workers, use the work assignment and checkpoint rules in the orchestration reference. For subgoals handled in sequence by the main chat, use the regular review cycle. A child may finish only when its acceptance criteria and relevant checks are satisfied. Then:
+For delegated workers, use the work assignment and checkpoint rules in the orchestration reference. For subgoals handled in sequence by the coordinator, use the regular review cycle. A child may finish only when its acceptance criteria and relevant checks are satisfied. Then:
 
 1. Mark `subgoal.md` as `completed`.
 2. Record its result, verification, and recommended next action in `Handoff to Parent`.
@@ -168,7 +168,7 @@ For delegated workers, use the work assignment and checkpoint rules in the orche
    and `sprintReview.md`.
 4. Resume the next pending sibling, or resume the parent loop.
 
-If a child is blocked, record the blocker in both child and parent contexts. The main chat resolves it within scope or pauses when a user decision is needed. A child cannot mark the parent GOAL complete. Keep execution IDs stable and preserve context at the three-level nesting limit. Handle further work as a slice of the current subgoal when possible.
+If a child is blocked, record the blocker in both child and parent contexts. The coordinator resolves it within scope or pauses when a user decision is needed. A child cannot mark the parent GOAL complete. Keep execution IDs stable and preserve context at the three-level nesting limit. Handle further work as a slice of the current subgoal when possible.
 
 ### Parent Completion Cleanup
 
@@ -497,7 +497,7 @@ Append after each loop:
 
 ## Output Style
 
-Report material changes, decisions, blockers, and verified outcomes. Include checks, files, or commit status when useful for review. When coordinating workers, let MLMS checkpoints carry routine progress. Keep worker replies brief and surface user decisions or verified results from the main chat.
+Report material changes, decisions, blockers, and verified outcomes. Include checks, files, or commit status when useful for review. When coordinating workers, let MLMS checkpoints carry routine progress. Keep worker replies brief. The coordinator surfaces user decisions and verified results.
 
 ## Safety Rules
 
