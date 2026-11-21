@@ -31,10 +31,12 @@ class OrchestrationTest(unittest.TestCase):
         self.cli = [sys.executable, ROOT / "orchestrate.py"]
         self.call("init", "Parent goal")
 
-    def call(self, *args, expected=0, payload=None, internal=False):
+    def call(self, *args, expected=0, payload=None, internal=False, locked_root=None):
         flags = ["--locked"] if internal else []
         env = os.environ.copy()
         env.pop("MLMS_LOCKED_ROOT", None)
+        if locked_root is not None:
+            env["MLMS_LOCKED_ROOT"] = str(locked_root)
         result = subprocess.run([*self.cli, *flags, self.app, "run", *map(str, args)],
                                 env=env, input=payload, text=True, capture_output=True, timeout=10)
         self.assertEqual(result.returncode, expected, (args, result.stdout, result.stderr))
@@ -43,7 +45,7 @@ class OrchestrationTest(unittest.TestCase):
     def start(self, worker, backend="subagent"):
         self.call("reserve", worker, "Subgoal for " + worker)
         self.call("bind", worker, backend, worker + "-session")
-        return self.call("begin", worker, 1)["ticket"]
+        return self.call("begin", worker, 1, 0)["ticket"]
 
     def report(self, worker, ticket, outcome="candidate", payload=CHECKPOINT, expected=0):
         return self.call("report", worker, ticket, outcome, payload=payload, expected=expected)
@@ -52,8 +54,11 @@ class OrchestrationTest(unittest.TestCase):
         first = self.start("worker")
         self.report("worker", first)
         self.call("rework", "worker", first, "Change requested")
-        second = self.call("begin", "worker", 1)["ticket"]
+        self.call("begin", "worker", 1, 0, expected=1)
+        second = self.call("begin", "worker", 1, first)["ticket"]
         self.call("interrupt", "worker", first, "Old slice stopped", expected=1)
+        self.call("guard", "worker", first, expected=1)
+        self.report("worker", first, expected=1)
         self.call("guard", "worker", second)
         unverified = json.loads(CHECKPOINT)
         unverified["evidence"] = ""
@@ -70,21 +75,26 @@ class OrchestrationTest(unittest.TestCase):
     def test_pause_resume_and_blocked_completion(self):
         ticket = self.start("worker", "chat")
         self.call("reserve", "pending", "Independent work")
-        self.call("pause", "Need approval")
+        self.call("pause", 1, "Need approval")
         self.call("guard", "worker", ticket, expected=1)
-        self.call("resume", "Approved", expected=1)
+        self.call("resume", 1, "Approved", expected=1)
         self.call("interrupt", "worker", ticket, "Runtime confirmed stopped")
-        self.call("resume", "Approved", expected=1)
-        self.call("cancel", "pending", "Confirmed setup stopped")
-        epoch = self.call("resume", "Approved")["epoch"]
-        self.call("begin", "worker", epoch - 1, expected=1)
-        ticket = self.call("begin", "worker", epoch)["ticket"]
+        self.call("resume", 1, "Approved", expected=1)
+        pending_revision = self.call("status")["workers"]["pending"]["revision"]
+        self.call("cancel", "pending", pending_revision, "Confirmed setup stopped")
+        epoch = self.call("resume", 1, "Approved")["epoch"]
+        self.call("pause", 1, "Stale pause", expected=1)
+        self.call("pause", epoch, "Second decision")
+        self.call("resume", 1, "Stale approval", expected=1)
+        epoch = self.call("resume", epoch, "Second approval")["epoch"]
+        self.call("begin", "worker", epoch - 1, ticket, expected=1)
+        ticket = self.call("begin", "worker", epoch, ticket)["ticket"]
         self.report("worker", ticket, "blocked", expected=1)
         blocked = json.loads(CHECKPOINT)
         blocked["blocker"] = "Environment unavailable"
         self.report("worker", ticket, "blocked", json.dumps(blocked))
         self.call("complete", "Done", "--evidence", "Parent tests", expected=1)
-        ticket = self.call("begin", "worker", epoch)["ticket"]
+        ticket = self.call("begin", "worker", epoch, ticket)["ticket"]
         self.report("worker", ticket)
         self.call("accept", "worker", ticket, "Independent checks passed")
         self.call("complete", "Done", expected=2)
@@ -113,7 +123,52 @@ class OrchestrationTest(unittest.TestCase):
 
     def test_internal_mode_requires_lock_context(self):
         self.call("reserve", "worker", "Subgoal", expected=1, internal=True)
+        self.call("reserve", "worker", "Subgoal", expected=1, internal=True, locked_root=self.memory)
+        lock = self.memory.with_name(self.memory.name + ".update-lock")
+        lock.mkdir()
+        (lock / "owner").write_text(f"pid={os.getppid()}\n", encoding="utf-8")
+        self.call("reserve", "worker", "Subgoal", expected=1, internal=True, locked_root=self.memory)
         self.assertEqual(self.call("status")["workers"], {})
+
+    def test_cancellation_does_not_apply_to_changed_worker(self):
+        reserved = self.call("reserve", "worker", "Prepare workspace")
+        bound = self.call("bind", "worker", "cli", "running-session")
+        self.call("cancel", "worker", reserved["revision"], "Setup failed", expected=1)
+        self.assertEqual(self.call("status", "--worker", "worker")["status"], "ready")
+        self.call("cancel", "worker", bound["revision"], "Runtime confirmed stopped")
+        self.call("complete", "Stopped before integration", "--evidence", "Checks not run",
+                  "--remaining", "Integration and tests")
+        summary = self.call("status")
+        self.assertEqual(summary["phase"], "complete")
+        self.assertEqual(summary["result"], "Stopped before integration")
+        self.assertEqual(summary["remaining"], "Integration and tests")
+        self.assertEqual(self.call("status", "--full")["workers"]["worker"]["status"], "cancelled")
+        # Older compact records kept remaining work only in the full archive.
+        canonical = self.memory / "orchestration" / "run" / "run.json"
+        legacy = json.loads(canonical.read_text(encoding="utf-8"))
+        del legacy["remaining"]
+        canonical.write_text(json.dumps(legacy), encoding="utf-8")
+        self.assertEqual(self.call("status")["remaining"], "Integration and tests")
+
+    def test_restart_recovers_lost_replies_and_preserves_accepted_work(self):
+        ticket = self.start("worker")
+        active = self.call("status", "--worker", "worker")
+        self.assertEqual((active["status"], active["ticket"]), ("running", ticket))
+        self.report("worker", ticket, payload="{", expected=1)
+        self.assertEqual(self.call("status", "--worker", "worker"), active)
+
+        # Discard command responses and recover state through a fresh CLI invocation.
+        self.report("worker", ticket)
+        candidate = self.call("status", "--worker", "worker")
+        self.report("worker", ticket, expected=1)
+        self.assertEqual(self.call("status", "--worker", "worker"), candidate)
+        self.call("accept", "worker", ticket, "Coordinator checked the output")
+        accepted = self.call("status", "--worker", "worker")
+        self.call("accept", "worker", ticket, "Duplicate decision", expected=1)
+        self.assertEqual(self.call("status", "--worker", "worker"), accepted)
+        self.assertEqual(accepted["status"], "accepted")
+        self.assertEqual(accepted["checkpoints"], candidate["checkpoints"])
+        self.assertEqual(accepted["review"], "Coordinator checked the output")
 
 
 class LockRetryTest(unittest.TestCase):

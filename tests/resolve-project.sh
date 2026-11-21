@@ -334,7 +334,7 @@ if orchestrate bind chat-worker cli session-1 --host runner-a >/dev/null 2>&1; t
   fail "duplicate CLI runtime binding was accepted"
 fi
 orchestrate bind chat-worker chat session-1 --host runner-a >/dev/null
-orchestrate begin process-worker 1 >/dev/null
+orchestrate begin process-worker 1 0 >/dev/null
 orchestrate guard process-worker 1 >/dev/null
 printf '%s\n' '{"summary":"Slice complete","evidence":"CLI output verified","progress":"Done","next":"Review","blocker":""}' |
   orchestrate report process-worker 1 candidate >/dev/null

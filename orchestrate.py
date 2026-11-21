@@ -107,7 +107,7 @@ def archive_terminal_work(path, state):
     lines = ["# " + state["run"], "", "Goal: " + state["goal"], "",
              "Result: " + state["result"], ""]
     if "verification" in state:
-        lines.extend(["Verification: " + state["verification"], ""])
+        lines.extend(["Coordinator evidence: " + state["verification"], ""])
     lines.extend(["Open items: " + state.get("remaining", "See result."), "", "## Decisions"])
     for decision in state["decisions"]:
         lines.append(f'- {decision["question"]} → {decision["answer"]}')
@@ -115,7 +115,7 @@ def archive_terminal_work(path, state):
         lines.append("- None recorded.")
     write_atomic(archive / "summary.md", "\n".join(lines) + "\n")
     # Keep the run ID, cursor and participant count available without loading its archive.
-    keep = ("run", "goal", "phase", "epoch", "revision", "result", "verification")
+    keep = ("run", "goal", "phase", "epoch", "revision", "result", "verification", "remaining")
     return {**{key: state[key] for key in keep if key in state}, "archived": True,
             "chats_counted": 1 + len(state["workers"])}
 
@@ -145,18 +145,21 @@ def status_view(path, state, args):
             workers = read_state(path.parent / "archive" / "run.json")["workers"]
     result = {**counts, "run": state["run"], "phase": state["phase"],
               "epoch": state["epoch"], "cursor": revision, "workers": {}}
-    for field in ("question", "result", "verification"):
+    for field in ("question", "result", "verification", "remaining"):
         if field in state:
             result[field] = state[field]
     if state["phase"] == "complete":
         result["archive_summary"] = "archive/summary.md" if state.get("archived") else None
+        if state.get("archived") and "remaining" not in result:
+            result["remaining"] = read_state(path.parent / "archive" / "run.json").get("remaining")
     for key, worker in workers.items():
         if args.since is None:
             if worker["status"] in FINISHED:
                 continue
         elif worker.get("revision", 0) <= args.since:
             continue
-        fields = ("goal", "status", "ticket", "updated", "backend", "host", "handle", "interruption")
+        fields = ("goal", "status", "ticket", "revision", "updated", "backend", "host", "handle",
+                  "interruption")
         row = {field: worker[field] for field in fields if field in worker}
         if worker.get("checkpoints"):
             row["checkpoint"] = worker["checkpoints"][-1]
@@ -193,12 +196,14 @@ def transition(state, args):
 
     if command == "pause":
         require(state["phase"] == "running", "pause already requested")
+        require(args.epoch == state["epoch"], "pause epoch is out of date")
         state.update(phase="paused", question=args.question, paused_at=timestamp())
         return {"awaiting_checkpoint": [key for key, record in workers.items()
                  if record["status"] in {"running", "reserved"}]}
 
     if command == "resume":
         require(state["phase"] == "paused", "run is not paused")
+        require(args.epoch == state["epoch"], "resume epoch is out of date")
         require(not running(state) and not any(w["status"] == "reserved" for w in workers.values()),
                 "wait for running workers and pending worker setup to settle")
         state["decisions"].append({"question": state.pop("question"),
@@ -229,6 +234,7 @@ def transition(state, args):
     elif command == "begin":
         require(state["phase"] == "running" and args.epoch == state["epoch"],
                 "dispatch paused or work order is out of date")
+        require(args.previous_ticket == worker["ticket"], "work order ticket is out of date")
         require(status in {"ready", "idle", "blocked", "interrupted"},
                 "worker cannot start another slice")
         require(len(running(state)) < PARALLEL_WORKERS, "parallel worker limit reached")
@@ -261,6 +267,7 @@ def transition(state, args):
         worker.update(status="idle", review=args.evidence)
     elif command == "cancel":
         require(status not in FINISHED | {"running"}, "settle active work before cancelling")
+        require(args.revision == worker.get("revision", 0), "worker changed since cancellation was planned")
         worker.update(status="cancelled", cancellation=args.evidence)
     worker["updated"] = timestamp()
     return worker
@@ -278,11 +285,15 @@ def parse(argv):
     view.add_argument("--worker", type=identifier)
     commands.add_parser("clean", help="archive finished work in existing runs")
     commands.add_parser("init").add_argument("goal", type=nonempty)
-    commands.add_parser("pause").add_argument("question", type=nonempty)
-    commands.add_parser("resume").add_argument("decision", type=nonempty)
-    complete = commands.add_parser("complete")
+    pause = commands.add_parser("pause")
+    pause.add_argument("epoch", type=int)
+    pause.add_argument("question", type=nonempty)
+    resume = commands.add_parser("resume")
+    resume.add_argument("epoch", type=int)
+    resume.add_argument("decision", type=nonempty)
+    complete = commands.add_parser("complete", help="close a settled run and record its outcome")
     complete.add_argument("result", type=nonempty)
-    complete.add_argument("--evidence", type=nonempty, required=True)
+    complete.add_argument("--evidence", type=nonempty, required=True, help="coordinator's evidence for the outcome")
     complete.add_argument("--remaining", type=nonempty)
     for name in ("reserve", "bind", "begin", "guard", "report", "interrupt",
                  "accept", "rework", "cancel"):
@@ -292,7 +303,10 @@ def parse(argv):
     bind.add_argument("backend", type=nonempty, help="runtime label, such as chat, subagent, or cli")
     bind.add_argument("handle", type=nonempty)
     bind.add_argument("--host", default="local")
-    commands.choices["begin"].add_argument("epoch", type=int)
+    begin = commands.choices["begin"]
+    begin.add_argument("epoch", type=int)
+    begin.add_argument("previous_ticket", type=int)
+    commands.choices["cancel"].add_argument("revision", type=int)
     for name in ("guard", "report", "interrupt", "accept", "rework"):
         commands.choices[name].add_argument("ticket", type=int)
     commands.choices["report"].add_argument("outcome", choices=("idle", "blocked", "candidate"))
@@ -314,13 +328,23 @@ def run_with_lock(args, argv):
         time.sleep(delay)
 
 
+def require_lock_owner(root):
+    owner = root.with_name(root.name + ".update-lock") / "owner"
+    require(os.environ.get("MLMS_LOCKED_ROOT") == str(root) and owner.is_file(),
+            "internal update requires the MLMS lock")
+    # The lock wrapper runs this process directly while holding its directory lock.
+    with owner.open(encoding="utf-8") as marker:
+        require(marker.readline().strip() == f"pid={os.getppid()}",
+                "internal update must be launched by the MLMS lock owner")
+
+
 def main(argv):
     under_lock = bool(argv and argv[0] == "--locked")
     args = parse(argv[1:] if under_lock else argv)
     read_only = args.command in {"status", "guard"}
-    if under_lock:
-        require(os.environ.get("MLMS_LOCKED_ROOT"), "internal update requires the MLMS lock")
     path = memory_path(args.checkout, args.run)
+    if under_lock:
+        require_lock_owner(path.parents[2])
     if not under_lock and not read_only:
         return run_with_lock(args, argv)
 
@@ -343,7 +367,7 @@ def main(argv):
                 if hasattr(args, "worker"):
                     worker = state["workers"][args.worker]
                     worker["revision"] = state["revision"]
-                    fields = ("status", "ticket")
+                    fields = ("status", "ticket", "revision")
                     result = {"worker": args.worker, **{key: worker[key] for key in fields}}
 
     if not read_only:

@@ -89,6 +89,8 @@ With `Mode: auto`, independent subgoals run in parallel when delegation and isol
 
 A pause blocks new work and asks active workers to checkpoint. If a checkpoint is missing, verify the runtime has stopped the worker before recording an interruption. See the [orchestration workflow](skills/mini-loop-memory-scrum/references/orchestration.md).
 
+At closure, read `result`, `verification`, and `remaining` together. A `complete` run has settled worker assignments. Goal success depends on the coordinator's review of the integrated result against the parent criteria.
+
 The workflow supports explicit branch/worktree subgoal assignments. Agents load shared project vision and accepted decisions plus only their assigned subgoal context. `select-context.sh` selects work; `reconcile-subgoal.sh` records merge evidence under lock. Git ancestry can prove a normal merge; branch deletion is not proof and uncertain squash state remains `unknown`. Reconciliation preserves acceptance criteria and leaves completion decisions to the Mini-Loop review.
 
 Application and MLMS commits are separate and require permission under the configured policy. No automatic push or merge occurs. A Git merge alone never completes a parent GOAL.
